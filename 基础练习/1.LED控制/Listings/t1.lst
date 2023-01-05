@@ -1,0 +1,95 @@
+C51 COMPILER V9.60.0.0   T1                                                                01/05/2023 16:42:14 PAGE 1   
+
+
+C51 COMPILER V9.60.0.0, COMPILATION OF MODULE T1
+OBJECT MODULE PLACED IN .\Objects\t1.obj
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE t1.c OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(.\Listings\t1.lst
+                    -) TABS(2) OBJECT(.\Objects\t1.obj)
+
+line level    source
+
+   1          #include<stc15.h>
+   2          #include<intrins.h>
+   3          
+   4          void clsbuff();
+   5          void Delay500ms();
+   6          void led();
+   7          
+   8          void main()
+   9          {
+  10   1        clsbuff();
+  11   1        while(1)
+  12   1        {
+  13   2          led();
+  14   2        }
+  15   1      }
+  16          
+  17          void clsbuff()
+  18          {
+  19   1        P2 = (P2 & 0x1f | 0xaf);
+  20   1        P0 = (P0 & 0x00);
+  21   1        P2 &= 0x00;
+  22   1      }
+  23          
+  24          void Delay500ms()   //@11.0592MHz
+  25          {
+  26   1        unsigned char i, j, k;
+  27   1      
+  28   1        _nop_();
+  29   1        _nop_();
+  30   1        i = 22;
+  31   1        j = 3;
+  32   1        k = 227;
+  33   1        do
+  34   1        {
+  35   2          do
+  36   2          {
+  37   3            while (--k);
+  38   3          } while (--j);
+  39   2        } while (--i);
+  40   1      }
+  41          
+  42          void led()
+  43          {
+  44   1        int i;
+  45   1        P2 = (P2 & 0x1f | 0x8f);
+  46   1        for(i = 0;i < 3; i++)
+  47   1        {
+  48   2          P0 = 0x00;
+  49   2          Delay500ms();
+  50   2          P0 = 0xff;
+  51   2          Delay500ms();
+  52   2        }
+  53   1        P0 = 0xfe;
+  54   1        Delay500ms();
+C51 COMPILER V9.60.0.0   T1                                                                01/05/2023 16:42:14 PAGE 2   
+
+  55   1        for(i = 0;i < 7; i++)
+  56   1        {
+  57   2          P0 = (P0<<1);
+  58   2          Delay500ms();
+  59   2        }
+  60   1        
+  61   1        P0 = 0x01;
+  62   1        Delay500ms();
+  63   1        for(i = 0;i < 7; i++)
+  64   1        {
+  65   2          P0 = (P0<<1) + 1;
+  66   2          Delay500ms();
+  67   2        }
+  68   1        P2 &= 0x00;
+  69   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    134    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
