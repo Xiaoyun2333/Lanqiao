@@ -1,0 +1,206 @@
+C51 COMPILER V9.60.0.0   T4_1                                                              01/06/2023 22:08:25 PAGE 1   
+
+
+C51 COMPILER V9.60.0.0, COMPILATION OF MODULE T4_1
+OBJECT MODULE PLACED IN .\Objects\t4_1.obj
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE t4_1.c OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(.\Listings\t4_1
+                    -.lst) TABS(2) OBJECT(.\Objects\t4_1.obj)
+
+line level    source
+
+   1          #include<stc15.h>
+   2          #include<intrins.h>
+   3          
+   4          unsigned char state = 0x11;
+   5          unsigned char nstate = 0x11;
+   6          
+   7          sbit s7 = P3^0;
+   8          sbit s6 = P3^1;
+   9          sbit s5 = P3^2;
+  10          sbit s4 = P3^3;
+  11          
+  12          sbit L1 = P0^0;
+  13          sbit L2 = P0^1;
+  14          sbit L3 = P0^2;
+  15          sbit L4 = P0^3;
+  16          sbit L5 = P0^4;
+  17          sbit L6 = P0^5;
+  18          
+  19          void init_ls138(int key);
+  20          void cls();
+  21          void Delay10ms();
+  22          void init_state();
+  23          void set_state();
+  24          void show_state();
+  25          
+  26          void main()
+  27          {
+  28   1        cls();
+  29   1        init_ls138(4);
+  30   1        P0 = 0xff;
+  31   1        while(1)
+  32   1        {
+  33   2          show_state();
+  34   2          set_state();
+  35   2        }
+  36   1      }
+  37          
+  38          void init_ls138(int key)
+  39          {
+  40   1        switch(key)
+  41   1        {
+  42   2          case 4:
+  43   2            P2 = (P2 & 0x00) | 0x80;
+  44   2          break;
+  45   2          case 5:
+  46   2            P2 = (P2 & 0x00) | 0xa0;
+  47   2          break;
+  48   2          case 6:
+  49   2            P2 = (P2 & 0x00) | 0xc0;
+  50   2          break;
+  51   2          case 7:
+  52   2            P2 = (P2 & 0x00) | 0xe0;
+  53   2          break;
+  54   2          default:
+C51 COMPILER V9.60.0.0   T4_1                                                              01/06/2023 22:08:25 PAGE 2   
+
+  55   2            P2 &= 0x00; 
+  56   2          break;
+  57   2        }
+  58   1      }
+  59          void cls()
+  60          {
+  61   1        init_ls138(5);
+  62   1        P0 = 0x00;
+  63   1      }
+  64          void Delay10ms()    //@11.0592MHz
+  65          {
+  66   1        unsigned char i, j;
+  67   1        i = 108;
+  68   1        j = 145;
+  69   1        do
+  70   1        {
+  71   2          while (--j);
+  72   2        } while (--i);
+  73   1      }
+  74          void set_state()
+  75          {
+  76   1        state = nstate;
+  77   1      }
+  78          void show_state()
+  79          {
+  80   1        switch(state)
+  81   1        {
+  82   2          case 0x11:
+  83   2            L1 = 1;
+  84   2            L2 = 1;
+  85   2            if(s7 == 0)
+  86   2            {
+  87   3              Delay10ms();
+  88   3              if(s7 == 0)
+  89   3              {
+  90   4                while(s7 == 0);
+  91   4                nstate = 0x01;
+  92   4              }
+  93   3            }
+  94   2            if(s6 == 0)
+  95   2            {
+  96   3              Delay10ms();
+  97   3              if(s6 == 0)
+  98   3              {
+  99   4                while(s6 == 0);
+ 100   4                nstate = 0x10;
+ 101   4              }
+ 102   3            }
+ 103   2            break;
+ 104   2          case 0x01:
+ 105   2            L1 = 0;
+ 106   2            L2 = 1;
+ 107   2            if(s7 == 0)
+ 108   2            {
+ 109   3              Delay10ms();
+ 110   3              if(s7 == 0)
+ 111   3              {
+ 112   4                while(s7 == 0);
+ 113   4                nstate = 0x11;
+ 114   4              }
+ 115   3            }
+ 116   2            if(s5 == 0)
+C51 COMPILER V9.60.0.0   T4_1                                                              01/06/2023 22:08:25 PAGE 3   
+
+ 117   2            {
+ 118   3              Delay10ms();
+ 119   3              if(s5 == 0)
+ 120   3              {
+ 121   4                while(s5 == 0);
+ 122   4                nstate = 0x01;
+ 123   4                L3 = ~L3;
+ 124   4              }
+ 125   3            }
+ 126   2            if(s4 == 0)
+ 127   2            {
+ 128   3              Delay10ms();
+ 129   3              if(s4 == 0)
+ 130   3              {
+ 131   4                while(s4 == 0);
+ 132   4                nstate = 0x01;
+ 133   4                L4 = ~L4;
+ 134   4              }
+ 135   3            }
+ 136   2            break;
+ 137   2          case 0x10:
+ 138   2            L1 = 1;
+ 139   2            L2 = 0;
+ 140   2            if(s6 == 0)
+ 141   2            {
+ 142   3              Delay10ms();
+ 143   3              if(s6 == 0)
+ 144   3              {
+ 145   4                while(s6 == 0);
+ 146   4                nstate = 0x11;
+ 147   4              }
+ 148   3            }
+ 149   2            if(s5 == 0)
+ 150   2            {
+ 151   3              Delay10ms();
+ 152   3              if(s5 == 0)
+ 153   3              {
+ 154   4                while(s5 == 0);
+ 155   4                nstate = 0x10;
+ 156   4                L5 = ~L5;
+ 157   4              }
+ 158   3            }
+ 159   2            if(s4 == 0)
+ 160   2            {
+ 161   3              Delay10ms();
+ 162   3              if(s4 == 0)
+ 163   3              {
+ 164   4                while(s4 == 0);
+ 165   4                nstate = 0x10;
+ 166   4                L6 = ~L6;
+ 167   4              }
+ 168   3            }
+ 169   2            break;
+ 170   2          default:
+ 171   2            L1 = 1;
+ 172   2            L2 = 1;
+ 173   2            nstate = 0x11;
+ 174   2            break;
+ 175   2        }
+ 176   1      }
+
+
+C51 COMPILER V9.60.0.0   T4_1                                                              01/06/2023 22:08:25 PAGE 4   
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    252    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =      2    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
