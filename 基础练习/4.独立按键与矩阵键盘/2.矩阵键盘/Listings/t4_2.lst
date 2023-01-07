@@ -1,0 +1,136 @@
+C51 COMPILER V9.60.0.0   T4_2                                                              01/07/2023 12:27:09 PAGE 1   
+
+
+C51 COMPILER V9.60.0.0, COMPILATION OF MODULE T4_2
+OBJECT MODULE PLACED IN .\Objects\t4_2.obj
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE t4_2.c OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(.\Listings\t4_2
+                    -.lst) TABS(2) OBJECT(.\Objects\t4_2.obj)
+
+line level    source
+
+   1          #include<stc15.h>
+   2          #include<intrins.h>
+   3          
+   4          sbit r0 = P3^0;
+   5          sbit r1 = P3^1;
+   6          sbit r2 = P3^2;
+   7          sbit r3 = P3^3;
+   8          
+   9          sbit c0 = P4^4;
+  10          sbit c1 = P4^2;
+  11          sbit c2 = P3^5;
+  12          sbit c3 = P3^4;
+  13          
+  14          unsigned char key_num = 0;
+  15          
+  16          code unsigned char tab[] = {0xc0,0xf9,0xa4,0xb0,0x99,0x92,0x82,0xf8,0x80,0x90,0x88,0x83,0xc6,0xa1,0x86,0x8
+             -e};
+  17          
+  18          void init_138(int key);
+  19          void cls();
+  20          void Delay5ms();//·À¶¶¶¯ÑÓ³Ù
+  21          void dsp_smg(unsigned char value);
+  22          void scan_key_matrix();
+  23          
+  24          void main()
+  25          {
+  26   1        cls();
+  27   1        init_138(6);
+  28   1        P0 = 0x01;
+  29   1        init_138(7);
+  30   1        while(1)
+  31   1        {
+  32   2          scan_key_matrix();
+  33   2          dsp_smg(key_num);
+  34   2        }
+  35   1      }
+  36          
+  37          void init_138(int key)
+  38          {
+  39   1        switch(key)
+  40   1        {
+  41   2          case 4:
+  42   2            P2 = (P2 & 0x00) | 0x80;
+  43   2          break;
+  44   2          case 5:
+  45   2            P2 = (P2 & 0x00) | 0xa0;
+  46   2          break;
+  47   2          case 6:
+  48   2            P2 = (P2 & 0x00) | 0xc0;
+  49   2          break;
+  50   2          case 7:
+  51   2            P2 = (P2 & 0x00) | 0xe0;
+  52   2          break;
+  53   2        }
+C51 COMPILER V9.60.0.0   T4_2                                                              01/07/2023 12:27:09 PAGE 2   
+
+  54   1      }
+  55          void cls()
+  56          {
+  57   1        init_138(4);
+  58   1        P0 = 0xff;
+  59   1        init_138(5);
+  60   1        P0 = 0x00;
+  61   1      }
+  62          void Delay5ms()   //@11.0592MHz
+  63          {
+  64   1        unsigned char i, j;
+  65   1      
+  66   1        i = 54;
+  67   1        j = 199;
+  68   1        do
+  69   1        {
+  70   2          while (--j);
+  71   2        } while (--i);
+  72   1      }
+  73          void dsp_smg(unsigned char value)
+  74          {
+  75   1        P0 = tab[value];
+  76   1      }
+  77          void scan_key_matrix()
+  78          {
+  79   1        r0 = 0;
+  80   1        r1 = r2 = r3 = 1;
+  81   1        c0 = c1 = c2 = c3 = 1;
+  82   1        if(c0 == 0){Delay5ms();if(c0 == 0){while(c0 == 0);Delay5ms();key_num = 0;}}
+  83   1        if(c1 == 0){Delay5ms();if(c1 == 0){while(c1 == 0);Delay5ms();key_num = 1;}}
+  84   1        if(c2 == 0){Delay5ms();if(c2 == 0){while(c2 == 0);Delay5ms();key_num = 2;}}
+  85   1        if(c3 == 0){Delay5ms();if(c3 == 0){while(c3 == 0);Delay5ms();key_num = 3;}}
+  86   1        
+  87   1        r1 = 0;
+  88   1        r0 = r2 = r3 = 1;
+  89   1        if(c0 == 0){Delay5ms();if(c0 == 0){while(c0 == 0);Delay5ms();key_num = 4;}}
+  90   1        if(c1 == 0){Delay5ms();if(c1 == 0){while(c1 == 0);Delay5ms();key_num = 5;}}
+  91   1        if(c2 == 0){Delay5ms();if(c2 == 0){while(c2 == 0);Delay5ms();key_num = 6;}}
+  92   1        if(c3 == 0){Delay5ms();if(c3 == 0){while(c3 == 0);Delay5ms();key_num = 7;}}
+  93   1        
+  94   1        r2 = 0;
+  95   1        r1 = r0 = r3 = 1;
+  96   1        if(c0 == 0){Delay5ms();if(c0 == 0){while(c0 == 0);Delay5ms();key_num = 8;}}
+  97   1        if(c1 == 0){Delay5ms();if(c1 == 0){while(c1 == 0);Delay5ms();key_num = 9;}}
+  98   1        if(c2 == 0){Delay5ms();if(c2 == 0){while(c2 == 0);Delay5ms();key_num = 10;}}
+  99   1        if(c3 == 0){Delay5ms();if(c3 == 0){while(c3 == 0);Delay5ms();key_num = 11;}}
+ 100   1        
+ 101   1        r3 = 0;
+ 102   1        r1 = r0 = r2 = 1;
+ 103   1        if(c0 == 0){Delay5ms();if(c0 == 0){while(c0 == 0);Delay5ms();key_num = 12;}}
+ 104   1        if(c1 == 0){Delay5ms();if(c1 == 0){while(c1 == 0);Delay5ms();key_num = 13;}}
+ 105   1        if(c2 == 0){Delay5ms();if(c2 == 0){while(c2 == 0);Delay5ms();key_num = 14;}}
+ 106   1        if(c3 == 0){Delay5ms();if(c3 == 0){while(c3 == 0);Delay5ms();key_num = 15;}}
+ 107   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    428    ----
+   CONSTANT SIZE    =     16    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =      1    ----
+C51 COMPILER V9.60.0.0   T4_2                                                              01/07/2023 12:27:09 PAGE 3   
+
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
