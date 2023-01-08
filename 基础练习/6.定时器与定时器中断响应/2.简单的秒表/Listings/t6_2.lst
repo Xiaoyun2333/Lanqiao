@@ -1,0 +1,220 @@
+C51 COMPILER V9.60.0.0   T6_2                                                              01/08/2023 17:04:30 PAGE 1   
+
+
+C51 COMPILER V9.60.0.0, COMPILATION OF MODULE T6_2
+OBJECT MODULE PLACED IN .\Objects\t6_2.obj
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE t6_2.c OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(.\Listings\t6_2
+                    -.lst) TABS(2) OBJECT(.\Objects\t6_2.obj)
+
+line level    source
+
+   1          #include<stc15.h>
+   2          #include<intrins.h>
+   3          
+   4          sbit s5 = P3^2;
+   5          sbit s4 = P3^3;
+   6          
+   7          unsigned char min = 0;//分计数
+   8          unsigned char sec = 0;//秒计数
+   9          unsigned char msec50 = 0;//50毫秒计数
+  10          unsigned char cs = 0x00;
+  11          unsigned char ns = 0x00;
+  12          
+  13          code unsigned char tab[] = {0xc0,0xf9,0xa4,0xb0,0x99,0x92,0x82,0xf8,0x80,0x90,0xbf};//0~9、-
+  14          unsigned char dspbuf[] = {255,255,255,255,255,255,255,255};//显示缓冲
+  15          
+  16          void init_138(unsigned char value);//138选择通道
+  17          void cls();//关闭蜂鸣器、LED
+  18          void show_smg();//数码管显示
+  19          void Delay1ms();//动态显示
+  20          void Delay5ms();//按键防抖动
+  21          void set_dspbuf();//设置数码管显示
+  22          void smachine_1();//第一段状态机
+  23          void smachine_2();//第二段状态机
+  24          void smachine_3();//第三段状态机
+  25          void init_timer0();//t0初始化
+  26          void cls_timer0();//关闭t0
+  27          void service_timer0();//t0中断服务函数
+  28          
+  29          void main()
+  30          {
+  31   1        cls();
+  32   1        while(1)
+  33   1        {
+  34   2          smachine_1();
+  35   2          smachine_2();
+  36   2          smachine_3();
+  37   2          show_smg();
+  38   2        }
+  39   1      }
+  40          
+  41          void init_138(unsigned char value)
+  42          {
+  43   1        switch(value)
+  44   1        {
+  45   2          case 4:
+  46   2            P2 = P2 & 0x1f | 0x80;
+  47   2          break;
+  48   2          case 5:
+  49   2            P2 = P2 & 0x1f | 0xa0;
+  50   2          break;
+  51   2          case 6:
+  52   2            P2 = P2 & 0x1f | 0xc0;
+  53   2          break;
+  54   2          case 7:
+C51 COMPILER V9.60.0.0   T6_2                                                              01/08/2023 17:04:30 PAGE 2   
+
+  55   2            P2 = P2 & 0x1f | 0xe0;
+  56   2          break;
+  57   2        }
+  58   1      }
+  59          void cls()
+  60          {
+  61   1        init_138(4);
+  62   1        P0 = 0xff;
+  63   1        init_138(5);
+  64   1        P0 = 0x00;
+  65   1      }
+  66          void show_smg()
+  67          { 
+  68   1        unsigned char i;
+  69   1        set_dspbuf();
+  70   1        for(i = 0; i < 8; i++)
+  71   1        {
+  72   2          init_138(6);
+  73   2          P0 = 0x01 << i;
+  74   2          init_138(7);
+  75   2          P0 = dspbuf[i];
+  76   2          Delay1ms();
+  77   2        }
+  78   1      }
+  79          void Delay1ms()   //@11.0592MHz
+  80          {
+  81   1        unsigned char i, j;
+  82   1        _nop_();
+  83   1        _nop_();
+  84   1        _nop_();
+  85   1        i = 11;
+  86   1        j = 190;
+  87   1        do
+  88   1        {
+  89   2          while (--j);
+  90   2        } while (--i);
+  91   1      }
+  92          void Delay5ms()   //@11.0592MHz
+  93          {
+  94   1        unsigned char i, j;
+  95   1      
+  96   1        i = 54;
+  97   1        j = 199;
+  98   1        do
+  99   1        {
+ 100   2          while (--j);
+ 101   2        } while (--i);
+ 102   1      }
+ 103          void set_dspbuf()
+ 104          {
+ 105   1        dspbuf[0] = tab[min / 10];
+ 106   1        dspbuf[1] = tab[min % 10];
+ 107   1        dspbuf[2] = tab[10];
+ 108   1        dspbuf[3] = tab[sec / 10];
+ 109   1        dspbuf[4] = tab[sec % 10];
+ 110   1        dspbuf[5] = tab[10];
+ 111   1        dspbuf[6] = tab[msec50 / 10];
+ 112   1        dspbuf[7] = tab[msec50 % 10];
+ 113   1      }
+ 114          void smachine_1()
+ 115          {
+ 116   1        if(s4 == 0){Delay5ms();if(s4 == 0){Delay5ms();ns = 0x00;}}
+C51 COMPILER V9.60.0.0   T6_2                                                              01/08/2023 17:04:30 PAGE 3   
+
+ 117   1        cs = ns;
+ 118   1      }
+ 119          void smachine_2()
+ 120          {
+ 121   1        switch(ns)
+ 122   1        {
+ 123   2          case 0x00:
+ 124   2            if(s5 == 0){Delay5ms();if(s5 == 0){Delay5ms();ns = 0x01;}}
+ 125   2          break;
+ 126   2          case 0x01:
+ 127   2            if(s5 == 0){Delay5ms();if(s5 == 0){Delay5ms();ns = 0x10;}}
+ 128   2            break;
+ 129   2          case 0x10:
+ 130   2            if(s5 == 0){Delay5ms();if(s5 == 0){Delay5ms();ns = 0x01;}}
+ 131   2          break;
+ 132   2          default:
+ 133   2            ns = 0;
+ 134   2          break;
+ 135   2        }
+ 136   1      }
+ 137          void smachine_3()
+ 138          {
+ 139   1        if(cs == 0x00)
+ 140   1        {
+ 141   2          min = 0;
+ 142   2          sec = 0;
+ 143   2          msec50 = 0;
+ 144   2          cls_timer0();
+ 145   2        }
+ 146   1        else if(cs == 0x01)
+ 147   1        {
+ 148   2          init_timer0();
+ 149   2        }
+ 150   1        else if(cs == 0x10)
+ 151   1        {
+ 152   2          cls_timer0();
+ 153   2        }
+ 154   1      }
+ 155          void init_timer0()
+ 156          {
+ 157   1        AUXR &= 0x7F;   //定时器时钟12T模式
+ 158   1        TMOD &= 0xF0;   //设置定时器模式
+ 159   1        TL0 = 0xB0;   //设置定时初始值
+ 160   1        TH0 = 0x3C;;    //设置定时初始值
+ 161   1        TF0 = 0;    //清除TF0标志
+ 162   1        TR0 = 1;    //定时器0开始计时
+ 163   1        
+ 164   1        ET0 = 1;
+ 165   1        EA = 1;
+ 166   1      }
+ 167          void cls_timer0()
+ 168          {
+ 169   1        TR0 = 0;
+ 170   1        ET0 = 0;
+ 171   1        EA = 0;
+ 172   1      }
+ 173          void service_timer0() interrupt 1
+ 174          {
+ 175   1        msec50++;
+ 176   1        if(msec50 == 20)
+ 177   1        {
+ 178   2          sec++;
+C51 COMPILER V9.60.0.0   T6_2                                                              01/08/2023 17:04:30 PAGE 4   
+
+ 179   2          msec50 = 0;
+ 180   2          if(sec == 60)
+ 181   2          {
+ 182   3            min++;
+ 183   3            sec = 0;
+ 184   3            if(min == 60)
+ 185   3            {
+ 186   4              min = 0;
+ 187   4            }
+ 188   3          }
+ 189   2        }
+ 190   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    413    ----
+   CONSTANT SIZE    =     11    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =     13       1
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
