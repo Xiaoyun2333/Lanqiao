@@ -1,0 +1,77 @@
+C51 COMPILER V9.60.0.0   T_8                                                               01/08/2023 22:09:20 PAGE 1   
+
+
+C51 COMPILER V9.60.0.0, COMPILATION OF MODULE T_8
+OBJECT MODULE PLACED IN .\Objects\t_8.obj
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE t_8.c OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(.\Listings\t_8.l
+                    -st) TABS(2) OBJECT(.\Objects\t_8.obj)
+
+line level    source
+
+   1          #include<stc15.h>
+   2          #include<intrins.h>
+   3          
+   4          unsigned char r_sbuf;
+   5          
+   6          void UartInit();//串口初始化
+   7          void service_uart();//串口中断服务
+   8          void send(unsigned char t_sbuf);//串口发送
+   9          
+  10          void main()
+  11          {
+  12   1        UartInit();
+  13   1        
+  14   1        send(0x5a);
+  15   1        send(0xa5);
+  16   1        while(1)
+  17   1        {
+  18   2          
+  19   2        }
+  20   1      }
+  21          void UartInit() //9600bps@11.0592MHz
+  22          {
+  23   1        PCON &= 0x7F;   //波特率不倍速
+  24   1        SCON = 0x50;    //8位数据,可变波特率
+  25   1        AUXR &= 0xBF;   //定时器时钟12T模式
+  26   1        AUXR &= 0xFE;   //串口1选择定时器1为波特率发生器
+  27   1        TMOD &= 0x0F;   //设置定时器模式
+  28   1        TMOD |= 0x20;   //设置定时器模式
+  29   1        TL1 = 0xFD;   //设置定时初始值
+  30   1        TH1 = 0xFD;   //设置定时重载值
+  31   1        ET1 = 0;    //禁止定时器%d中断
+  32   1        TR1 = 1;    //定时器1开始计时
+  33   1        
+  34   1        ES = 1;
+  35   1        EA = 1;
+  36   1      }
+  37          void service_uart() interrupt 4
+  38          {
+  39   1        if(RI == 1)
+  40   1        {
+  41   2          RI = 0;
+  42   2          r_sbuf = SBUF;
+  43   2          send(r_sbuf + 1);
+  44   2        }
+  45   1      }
+  46          void send(unsigned char t_sbuf)
+  47          {
+  48   1        SBUF = t_sbuf;
+  49   1        while(TI == 0);
+  50   1        TI = 0;
+  51   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+C51 COMPILER V9.60.0.0   T_8                                                               01/08/2023 22:09:20 PAGE 2   
+
+   CODE SIZE        =    127    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =      1    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
