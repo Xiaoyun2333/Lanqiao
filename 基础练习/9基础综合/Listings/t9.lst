@@ -1,0 +1,316 @@
+C51 COMPILER V9.60.0.0   T9                                                                01/09/2023 20:49:40 PAGE 1   
+
+
+C51 COMPILER V9.60.0.0, COMPILATION OF MODULE T9
+OBJECT MODULE PLACED IN .\Objects\t9.obj
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE t9.c OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(.\Listings\t9.lst
+                    -) TABS(2) OBJECT(.\Objects\t9.obj)
+
+line level    source
+
+   1          #include<stc15.h>
+   2          #include<intrins.h>
+   3          //================================================
+   4          sbit s5 = P3^2;
+   5          sbit s4 = P3^3;
+   6          //================================================
+   7          code unsigned char tab[] = {0xc0,0xf9,0xa4,0xb0,
+   8                                      0x99,0x92,0x82,0xf8,
+   9                                      0x80,0x90,0x88,0x83,
+  10                                      0xc6,0xa1,0x86,0x8e};//数码管0~F，"-"为0xbf
+  11          unsigned char dspbuf[] = {255,255,255,255,255,255,255,255};//数码管显示缓冲
+  12          
+  13          unsigned char hour = 0;
+  14          unsigned char min = 0;
+  15          unsigned char sec = 0;
+  16          unsigned char count = 0;
+  17          unsigned char led = 0xff;
+  18          unsigned char r_sbuf;
+  19          //================================================
+  20          void init_ls138(unsigned char value);//选择P0通道
+  21          void cls();//关闭led和蜂鸣器
+  22          void led_check();//LED开机自检
+  23          void smg_check();//数码管开机自检
+  24          void Timer0Init();//50毫秒@11.0592MHz
+  25          void service_t0();//t0中断服务函数
+  26          void smg_show();//数码管显示
+  27          void key_alone();//按键控制
+  28          void UartInit();//9600bps@11.0592MHz
+  29          void service_uart();//串口中断服务
+  30          void sendchar(unsigned char Char);//发送字节
+  31          void command();//执行上位机命令
+  32          //================================================
+  33          void Delay100ms();//自检函数延时
+  34          void Delay1ms();//数码管动态扫描延时
+  35          //================================================
+  36          void main()
+  37          {
+  38   1        cls();
+  39   1        led_check();
+  40   1        smg_check();
+  41   1        Timer0Init();
+  42   1        UartInit();
+  43   1        EA = 1;
+  44   1        while(1)
+  45   1        {
+  46   2          smg_show();
+  47   2          key_alone();
+  48   2        }
+  49   1      }
+  50          //================================================
+  51          void init_ls138(unsigned char value)
+  52          {
+  53   1        switch(value)
+  54   1        {
+C51 COMPILER V9.60.0.0   T9                                                                01/09/2023 20:49:40 PAGE 2   
+
+  55   2          case 4:
+  56   2            P2 = P2 & 0x1f | 0x80;
+  57   2          break;
+  58   2          case 5:
+  59   2            P2 = P2 & 0x1f | 0xa0;
+  60   2          break;
+  61   2          case 6:
+  62   2            P2 = P2 & 0x1f | 0xc0;
+  63   2          break;
+  64   2          case 7:
+  65   2            P2 = P2 & 0x1f | 0xe0;
+  66   2          break;
+  67   2          default:
+  68   2            P2 = P2 & 0x1f;
+  69   2          break;
+  70   2        }
+  71   1      }
+  72          void cls()
+  73          {
+  74   1        init_ls138(5);
+  75   1        P0 = 0x00;
+  76   1        init_ls138(4);
+  77   1        P0 = 0xff;
+  78   1        init_ls138(0);
+  79   1      }
+  80          void led_check()
+  81          {
+  82   1        unsigned char i;
+  83   1        init_ls138(4);
+  84   1        for(i = 0; i < 8; i++)
+  85   1        {
+  86   2          P0 = 0xfe << i;
+  87   2          Delay100ms();
+  88   2        }
+  89   1        for(i = 0; i < 8; i++)
+  90   1        {
+  91   2          P0 = ~(~0x01 << i);
+  92   2          Delay100ms();
+  93   2        }
+  94   1        init_ls138(0);
+  95   1      }
+  96          void smg_check()
+  97          {
+  98   1        unsigned char i;
+  99   1        for(i = 0; i < 8; i++)
+ 100   1        {
+ 101   2          init_ls138(6);
+ 102   2          P0 = ~(~0x01 << i);
+ 103   2          init_ls138(7);
+ 104   2          P0 = 0x00;
+ 105   2          Delay100ms();
+ 106   2        }
+ 107   1        for(i = 0; i < 8; i++)
+ 108   1        {
+ 109   2          init_ls138(6);
+ 110   2          P0 = 0xfe << i;
+ 111   2          init_ls138(7);
+ 112   2          P0 = 0x00;
+ 113   2          Delay100ms();
+ 114   2        }
+ 115   1        init_ls138(0);
+ 116   1      }
+C51 COMPILER V9.60.0.0   T9                                                                01/09/2023 20:49:40 PAGE 3   
+
+ 117          void Timer0Init(void)   //50毫秒@11.0592MHz
+ 118          {
+ 119   1        AUXR &= 0x7F;   //定时器时钟12T模式
+ 120   1        TMOD &= 0xF0;   //设置定时器模式
+ 121   1        TL0 = 0x00;   //设置定时初始值
+ 122   1        TH0 = 0x4C;   //设置定时初始值
+ 123   1        TF0 = 0;    //清除TF0标志
+ 124   1        ET0 =1;
+ 125   1        TR0 = 1;    //定时器0开始计时
+ 126   1      }
+ 127          void UartInit(void)   //9600bps@11.0592MHz
+ 128          {
+ 129   1        PCON &= 0x7F;   //波特率不倍速
+ 130   1        SCON = 0x50;    //8位数据,可变波特率
+ 131   1        AUXR |= 0x40;   //定时器时钟1T模式
+ 132   1        AUXR &= 0xFE;   //串口1选择定时器1为波特率发生器
+ 133   1        TMOD &= 0x0F;   //设置定时器模式
+ 134   1        TMOD |= 0x20;   //设置定时器模式
+ 135   1        TL1 = 0xDC;   //设置定时初始值
+ 136   1        TH1 = 0xDC;   //设置定时重载值
+ 137   1        ET1 = 0;    //禁止定时器%d中断
+ 138   1        ES =1;
+ 139   1        TR1 = 1;    //定时器1开始计时
+ 140   1      }
+ 141          void service_t0() interrupt 1
+ 142          {
+ 143   1        count++;
+ 144   1        if(count == 20)
+ 145   1        {
+ 146   2          sec++;
+ 147   2          count = 0;
+ 148   2          if(sec == 60)
+ 149   2          {
+ 150   3            min++;
+ 151   3            sec = 0;
+ 152   3            if(min == 60)
+ 153   3            {
+ 154   4              hour++;
+ 155   4              min = 0;
+ 156   4              if(hour == 100)
+ 157   4              {
+ 158   5                hour = 0;
+ 159   5              }
+ 160   4            }
+ 161   3          }
+ 162   2        }
+ 163   1      }
+ 164          void smg_show()
+ 165          {
+ 166   1        unsigned char i;
+ 167   1        dspbuf[0] = tab[hour / 10];
+ 168   1        dspbuf[1] = tab[hour % 10];
+ 169   1        dspbuf[2] = 0xbf;
+ 170   1        dspbuf[3] = tab[min / 10];
+ 171   1        dspbuf[4] = tab[min % 10];
+ 172   1        dspbuf[5] = 0xbf;
+ 173   1        dspbuf[6] = tab[sec / 10];
+ 174   1        dspbuf[7] = tab[sec % 10];
+ 175   1        
+ 176   1        for(i = 0; i < 8; i++)
+ 177   1        {
+ 178   2          init_ls138(6);
+C51 COMPILER V9.60.0.0   T9                                                                01/09/2023 20:49:40 PAGE 4   
+
+ 179   2          P0 = 0x01 << i;
+ 180   2          init_ls138(7);
+ 181   2          P0 = dspbuf[i];
+ 182   2          Delay1ms();
+ 183   2        }
+ 184   1        init_ls138(0);
+ 185   1      }
+ 186          void key_alone()
+ 187          {
+ 188   1        if(s5 == 0)
+ 189   1        {
+ 190   2          smg_show();
+ 191   2          if(s5 == 0)
+ 192   2          {
+ 193   3            while(s5 == 0)
+ 194   3            {
+ 195   4              smg_show();
+ 196   4            }
+ 197   3            init_ls138(4);
+ 198   3            led = (led | 0x80) & (~led | 0x7f);
+ 199   3            P0 = led;
+ 200   3            init_ls138(0);
+ 201   3          }
+ 202   2        }
+ 203   1        if(s4 == 0)
+ 204   1        {
+ 205   2          smg_show();
+ 206   2          if(s4 == 0)
+ 207   2          {
+ 208   3            while(s4 == 0)
+ 209   3            {
+ 210   4              smg_show();
+ 211   4            }
+ 212   3            init_ls138(4);
+ 213   3            led = (led | 0x40) & (~led | 0xbf);
+ 214   3            P0 = led;
+ 215   3            init_ls138(0);
+ 216   3          }
+ 217   2        } 
+ 218   1      }
+ 219          void service_uart() interrupt 4
+ 220          {
+ 221   1        if(RI == 1)
+ 222   1        {
+ 223   2          RI = 0;
+ 224   2          r_sbuf = SBUF;
+ 225   2          command();
+ 226   2        }
+ 227   1      }
+ 228          void sendchar(unsigned char Char)
+ 229          {
+ 230   1        SBUF = Char;
+ 231   1        while(TI == 0);
+ 232   1        TI = 0;
+ 233   1      }
+ 234          void command()
+ 235          {
+ 236   1        if((r_sbuf & 0xf0) == 0xa0)
+ 237   1        {
+ 238   2          init_ls138(4);
+ 239   2          led = (led & 0xf0) | ~(r_sbuf | 0xf0);
+ 240   2          P0 = led;
+C51 COMPILER V9.60.0.0   T9                                                                01/09/2023 20:49:40 PAGE 5   
+
+ 241   2          init_ls138(0);
+ 242   2        }
+ 243   1        else if(r_sbuf == 0xb0)
+ 244   1        {   
+ 245   2          sendchar(((hour / 10) << 4) + (hour % 10));
+ 246   2          sendchar(((min / 10) << 4) + (min % 10));
+ 247   2          sendchar(((sec / 10) << 4) + (sec % 10));
+ 248   2        }
+ 249   1      }
+ 250          //================================================
+ 251          void Delay100ms()   //@11.0592MHz
+ 252          {
+ 253   1        unsigned char i, j, k;
+ 254   1      
+ 255   1        _nop_();
+ 256   1        _nop_();
+ 257   1        i = 5;
+ 258   1        j = 52;
+ 259   1        k = 195;
+ 260   1        do
+ 261   1        {
+ 262   2          do
+ 263   2          {
+ 264   3            while (--k);
+ 265   3          } while (--j);
+ 266   2        } while (--i);
+ 267   1      }
+ 268          void Delay1ms()   //@11.0592MHz
+ 269          {
+ 270   1        unsigned char i, j;
+ 271   1      
+ 272   1        _nop_();
+ 273   1        _nop_();
+ 274   1        _nop_();
+ 275   1        i = 11;
+ 276   1        j = 190;
+ 277   1        do
+ 278   1        {
+ 279   2          while (--j);
+ 280   2        } while (--i);
+ 281   1      }
+ 282          
+ 283          
+ 284            
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    773    ----
+   CONSTANT SIZE    =     16    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =     14       3
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
