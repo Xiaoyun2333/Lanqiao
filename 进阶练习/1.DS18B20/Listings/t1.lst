@@ -1,0 +1,182 @@
+C51 COMPILER V9.60.0.0   T1                                                                01/10/2023 19:17:32 PAGE 1   
+
+
+C51 COMPILER V9.60.0.0, COMPILATION OF MODULE T1
+OBJECT MODULE PLACED IN .\Objects\t1.obj
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE t1.c OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(.\Listings\t1.lst
+                    -) TABS(2) OBJECT(.\Objects\t1.obj)
+
+line level    source
+
+   1          #include<stc15.h>
+   2          #include<intrins.h>
+   3          #include<onewire.h>
+   4          
+   5          unsigned int temp = 850;
+   6          
+   7          code unsigned tab_nodoc[] = {0xc0,0xf9,0xa4,0xb0,0x99,0x92,0x82,0xf8,0x80,0x90,0x88,0x83,0xc6,0xa1,0x86,0x
+             -8e};
+   8          code unsigned tab_doc[] = {0x40,0x79,0x24,0x30,0x19,0x12,0x02,0x78,0x00,0x10,0x08,0x03,0x46,0x21,0x06,0x0e
+             -};
+   9          
+  10          void init_138(unsigned char value);
+  11          void cls();
+  12          
+  13          void smg_show_bit(unsigned char pos, unsigned char dat);
+  14          void smg_show();
+  15          void smg_show_all(unsigned char dat);
+  16          
+  17          void ds18b20_read_temp();
+  18          
+  19          void Delay1ms();
+  20          void Delay(unsigned int t);
+  21          
+  22          void main()
+  23          {
+  24   1        cls();
+  25   1        while(1)
+  26   1        {
+  27   2          ds18b20_read_temp();
+  28   2          smg_show();
+  29   2        }
+  30   1      }
+  31          //=========================================================
+  32          void init_138(unsigned char value)
+  33          {
+  34   1        switch(value)
+  35   1        {
+  36   2          case 4:
+  37   2            P2 = P2 & 0x1f | 0x80;
+  38   2          break;
+  39   2          case 5:
+  40   2            P2 = P2 & 0x1f | 0xa0;
+  41   2          break;
+  42   2          case 6:
+  43   2            P2 = P2 & 0x1f | 0xc0;
+  44   2          break;
+  45   2          case 7:
+  46   2            P2 = P2 & 0x1f | 0xe0;
+  47   2          break;
+  48   2          default:
+  49   2            P2 = P2 & 0x1f;
+  50   2          break;
+  51   2        }
+  52   1      }
+C51 COMPILER V9.60.0.0   T1                                                                01/10/2023 19:17:32 PAGE 2   
+
+  53          void cls()
+  54          {
+  55   1        init_138(4);
+  56   1        P0 = 0xff;
+  57   1        init_138(5);
+  58   1        P0 = 0x00;
+  59   1        init_138(0);
+  60   1      }
+  61          //===========================================================
+  62          void smg_show_bit(unsigned char pos, unsigned char dat)
+  63          {
+  64   1        init_138(7);
+  65   1        P0 = 0xff;
+  66   1        init_138(6);
+  67   1        P0 = 0x01 << pos;
+  68   1        init_138(7);
+  69   1        P0 = dat;
+  70   1        init_138(0);
+  71   1      }
+  72          void smg_show()
+  73          {
+  74   1        smg_show_bit(7, tab_nodoc[temp % 10]);
+  75   1        Delay1ms();
+  76   1        smg_show_bit(6, tab_doc[(temp % 100) / 10]);
+  77   1        Delay1ms();
+  78   1        smg_show_bit(5, tab_nodoc[temp / 100]);
+  79   1        Delay1ms();
+  80   1        
+  81   1        smg_show_bit(4, 0xff);
+  82   1        Delay1ms();
+  83   1        smg_show_bit(3, 0xff);
+  84   1        Delay1ms();
+  85   1        smg_show_bit(2, 0xff);
+  86   1        Delay1ms();
+  87   1        smg_show_bit(1, 0xff);
+  88   1        Delay1ms();
+  89   1        smg_show_bit(0, 0xff);
+  90   1        Delay1ms();
+  91   1        
+  92   1        smg_show_all(0xff);
+  93   1        
+  94   1      }
+  95          void smg_show_all(unsigned char dat)
+  96          {
+  97   1        init_138(6);
+  98   1        P0 = 0xff;
+  99   1        init_138(7);
+ 100   1        P0 = dat;
+ 101   1      }
+ 102          //===========================================================
+ 103          void ds18b20_read_temp()
+ 104          {
+ 105   1        unsigned char LSB,HSB;
+ 106   1        
+ 107   1        init_ds18b20();
+ 108   1        Write_DS18B20(0xcc);
+ 109   1        Write_DS18B20(0x44);
+ 110   1        
+ 111   1        Delay(200);
+ 112   1        
+ 113   1        init_ds18b20();
+ 114   1        Write_DS18B20(0xcc);
+C51 COMPILER V9.60.0.0   T1                                                                01/10/2023 19:17:32 PAGE 3   
+
+ 115   1        Write_DS18B20(0xbe);
+ 116   1        
+ 117   1        LSB = Read_DS18B20();
+ 118   1        HSB = Read_DS18B20();
+ 119   1        
+ 120   1        temp = HSB;
+ 121   1        temp = (temp << 8) | LSB;
+ 122   1        if((temp & 0xf800) == 0x0000)
+ 123   1        {
+ 124   2          temp >>= 4;
+ 125   2          temp = temp * 10;
+ 126   2          temp = temp + (LSB & 0x0f) * 0.625;
+ 127   2        }
+ 128   1        //temp >>= 4;只显示整数
+ 129   1        
+ 130   1      }
+ 131          //===========================================================
+ 132          void Delay1ms()   //@11.0592MHz
+ 133          {
+ 134   1        unsigned char i, j;
+ 135   1      
+ 136   1        _nop_();
+ 137   1        _nop_();
+ 138   1        _nop_();
+ 139   1        i = 11;
+ 140   1        j = 190;
+ 141   1        do
+ 142   1        {
+ 143   2          while (--j);
+ 144   2        } while (--i);
+ 145   1      }
+ 146          void Delay(unsigned int t)    //@11.0592MHz
+ 147          {
+ 148   1        while(--t)
+ 149   1        {
+ 150   2          smg_show();
+ 151   2        }
+ 152   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    498    ----
+   CONSTANT SIZE    =     64    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =      2       3
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
