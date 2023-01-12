@@ -1,0 +1,166 @@
+C51 COMPILER V9.60.0.0   T3                                                                01/12/2023 23:12:42 PAGE 1   
+
+
+C51 COMPILER V9.60.0.0, COMPILATION OF MODULE T3
+OBJECT MODULE PLACED IN .\Objects\t3.obj
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE t3.c OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(.\Listings\t3.lst
+                    -) TABS(2) OBJECT(.\Objects\t3.obj)
+
+line level    source
+
+   1          #include<stc15.h>
+   2          #include<absacc.h>
+   3          #include<intrins.h>
+   4          //================================================
+   5          code unsigned char tab[] = {0xc0,0xf9,0xa4,0xb0,
+   6                                      0x99,0x92,0x82,0xf8,
+   7                                      0x80,0x90};//数码管0~F，"-"为0xbf
+   8          unsigned char dspbuf[] = {255,255,255,255,255,255,255,255};//数码管显示缓冲
+   9          unsigned int count_f = 0;
+  10          unsigned int dat_f = 0;
+  11          unsigned char count_t = 0;
+  12          //================================================
+  13          void init_timer();
+  14          void service_timer0();
+  15          void service_timer1();
+  16          //================================================
+  17          void set_dspbuf();
+  18          void smg_show_bit(unsigned char pos, unsigned char dat);
+  19          void smg_show();
+  20          void smg_show_all(unsigned char dat);
+  21          //================================================
+  22          void cls();//关闭led和蜂鸣器
+  23          //================================================
+  24          void Delay1ms();
+  25          //================================================
+  26          void main()
+  27          {
+  28   1        cls();
+  29   1        init_timer();
+  30   1        while(1)
+  31   1        {
+  32   2          smg_show();
+  33   2        }
+  34   1      }
+  35          //================================================
+  36          void init_timer()
+  37          {
+  38   1        TH0 = 0XFF;
+  39   1        TL0 = 0XFF;
+  40   1        
+  41   1        TH1 = (65535 - 50000 + 1) / 256;
+  42   1        TL0 = (65535 - 50000 + 1) % 256;
+  43   1        
+  44   1        TMOD = 0X16;
+  45   1        ET0 = 1;
+  46   1        ET1 = 1;
+  47   1        EA = 1;
+  48   1        
+  49   1        TR0 = 1;
+  50   1        TR1 = 1;
+  51   1      }
+  52          void service_timer0() interrupt 1
+  53          {
+  54   1        count_f++;
+C51 COMPILER V9.60.0.0   T3                                                                01/12/2023 23:12:42 PAGE 2   
+
+  55   1      }
+  56          void service_timer1() interrupt 3
+  57          {
+  58   1        TH1 = (65535 - 50000 + 1) / 256;
+  59   1        TL0 = (65535 - 50000 + 1) % 256;
+  60   1        count_t++;
+  61   1        if(count_t == 20)
+  62   1        {
+  63   2          dat_f = count_f;
+  64   2          count_f = 0;
+  65   2          count_t = 0;
+  66   2        }
+  67   1      }
+  68          //================================================
+  69          void cls()
+  70          {
+  71   1        XBYTE[0x8000] = 0xff;
+  72   1        XBYTE[0xa000] = 0x00;
+  73   1      }
+  74          //================================================
+  75          void set_dspbuf()
+  76          {
+  77   1        dspbuf[0] = 0x8e;
+  78   1        
+  79   1        if(dat_f > 9999)
+  80   1        {
+  81   2          dspbuf[3] = tab[dat_f / 10000];
+  82   2        }
+  83   1        else{dspbuf[3] = 0xff;}
+  84   1        if(dat_f > 999)
+  85   1        {
+  86   2          dspbuf[4] = tab[(dat_f / 1000) % 10];
+  87   2        }
+  88   1        else{dspbuf[4] = 0xff;}
+  89   1        if(dat_f > 99)
+  90   1        {
+  91   2          dspbuf[5] = tab[(dat_f / 100) % 10];
+  92   2        }
+  93   1        else{dspbuf[5] = 0xff;}
+  94   1        if(dat_f > 9)
+  95   1        {
+  96   2          dspbuf[6] = tab[(dat_f / 10) % 10];
+  97   2        }
+  98   1        else{dspbuf[6] = 0xff;}
+  99   1        dspbuf[7] = tab[dat_f % 10];
+ 100   1      }
+ 101          void smg_show_bit(unsigned char pos, unsigned char dat)
+ 102          {
+ 103   1        XBYTE[0xe000] = 0xff;
+ 104   1        XBYTE[0xc000] = 0x01 << pos;
+ 105   1        XBYTE[0xe000] = dat;
+ 106   1      }
+ 107          void smg_show()
+ 108          {
+ 109   1        unsigned char i;
+ 110   1        set_dspbuf();
+ 111   1        for(i = 0; i < 8; i++)
+ 112   1        {
+ 113   2          smg_show_bit(i, dspbuf[i]);
+ 114   2          Delay1ms();
+ 115   2        }
+ 116   1        smg_show_all(0xff);
+C51 COMPILER V9.60.0.0   T3                                                                01/12/2023 23:12:42 PAGE 3   
+
+ 117   1      }
+ 118          void smg_show_all(unsigned char dat)
+ 119          {
+ 120   1        XBYTE[0xe000] = 0xff;
+ 121   1        XBYTE[0xc000] = 0xff;
+ 122   1        XBYTE[0xe000] = dat;
+ 123   1      }
+ 124          //================================================
+ 125          void Delay1ms()   //@11.0592MHz
+ 126          {
+ 127   1        unsigned char i, j;
+ 128   1      
+ 129   1        _nop_();
+ 130   1        _nop_();
+ 131   1        _nop_();
+ 132   1        i = 11;
+ 133   1        j = 190;
+ 134   1        do
+ 135   1        {
+ 136   2          while (--j);
+ 137   2        } while (--i);
+ 138   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    403    ----
+   CONSTANT SIZE    =     10    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =     13       1
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
