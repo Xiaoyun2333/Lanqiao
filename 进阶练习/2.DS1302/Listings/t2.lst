@@ -1,0 +1,133 @@
+C51 COMPILER V9.60.0.0   T2                                                                01/12/2023 22:00:51 PAGE 1   
+
+
+C51 COMPILER V9.60.0.0, COMPILATION OF MODULE T2
+OBJECT MODULE PLACED IN .\Objects\t2.obj
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE t2.c OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(.\Listings\t2.lst
+                    -) TABS(2) OBJECT(.\Objects\t2.obj)
+
+line level    source
+
+   1          #include<stc15.h>
+   2          #include<ds1302.h>
+   3          #include<absacc.h>
+   4          #include<intrins.h>
+   5          //================================================
+   6          unsigned char wirte_da1302_add[] = {0x80,0x82,0x84,0x86,0x88,0x8a,0x8c};//ds1302读地址
+   7          unsigned char read_da1302_add[] = {0x81,0x83,0x85,0x87,0x89,0x8b,0x8d};//ds1302写地址
+   8          unsigned char da1302_time[7] = {0x58,0x59,0x23,0x31,0x12,0x06,0x22};//初始时间22年12月31日，周六，23时59分
+             -58秒
+   9          unsigned char tab[] = {0xc0,0xf9,0xa4,0xb0,0x99,0x92,0x82,0xf8,0x80,0x90};//数码管0~F，"-"为0xbf
+  10          //================================================
+  11          void cls();//关闭led和蜂鸣器
+  12          //================================================
+  13          void smg_show_bit(unsigned char pos, unsigned char dat);//数码管一位显示
+  14          void smg_show();//数码管动态显示
+  15          void smg_show_all(unsigned char dat);//数码管统一显示
+  16          //================================================
+  17          void ds1302_config();//ds1302初始化
+  18          void read_da1302_time();//读取时间
+  19          //================================================
+  20          void Delay1ms();
+  21          //================================================
+  22          void main()
+  23          {
+  24   1        cls();
+  25   1        ds1302_config();
+  26   1        while(1)
+  27   1        {
+  28   2          smg_show();
+  29   2          read_da1302_time();
+  30   2        }
+  31   1      }
+  32          //================================================
+  33          void cls()
+  34          {
+  35   1        XBYTE[0x8000] = 0xff;
+  36   1        XBYTE[0xa000] = 0x00;
+  37   1      }
+  38          void ds1302_config()
+  39          {
+  40   1        char i;
+  41   1        Write_Ds1302_Byte(0x8e,0x00);
+  42   1        for(i = 0; i < 7; i++)
+  43   1        {
+  44   2          Write_Ds1302_Byte(wirte_da1302_add[i],da1302_time[i]);     
+  45   2        }
+  46   1        Write_Ds1302_Byte(0x8e,0x80);
+  47   1      }
+  48          void read_da1302_time()
+  49          {
+  50   1        char i;
+  51   1        for(i = 0; i < 7; i++)
+  52   1        {
+  53   2          da1302_time[i] =  Read_Ds1302_Byte(read_da1302_add[i]);
+C51 COMPILER V9.60.0.0   T2                                                                01/12/2023 22:00:51 PAGE 2   
+
+  54   2        }
+  55   1      }
+  56          //================================================
+  57          void smg_show_bit(unsigned char pos, unsigned char dat)
+  58          {
+  59   1        XBYTE[0xe000] = 0xff;
+  60   1        XBYTE[0xc000] = 0x01 << pos;
+  61   1        XBYTE[0xe000] = dat;
+  62   1      }
+  63          void smg_show()
+  64          {
+  65   1        smg_show_bit(0, tab[da1302_time[2] / 16]);
+  66   1        Delay1ms();
+  67   1        smg_show_bit(1, tab[da1302_time[2] % 16]);
+  68   1        Delay1ms();
+  69   1        smg_show_bit(2, 0xbf);
+  70   1        Delay1ms();
+  71   1        smg_show_bit(3, tab[da1302_time[1] / 16]);
+  72   1        Delay1ms();
+  73   1        smg_show_bit(4, tab[da1302_time[1] % 16]);
+  74   1        Delay1ms();
+  75   1        smg_show_bit(5, 0xbf);
+  76   1        Delay1ms();
+  77   1        smg_show_bit(6, tab[da1302_time[0] / 16]);
+  78   1        Delay1ms();
+  79   1        smg_show_bit(7, tab[da1302_time[0] % 16]);
+  80   1        Delay1ms();
+  81   1        
+  82   1        smg_show_all(0xff);
+  83   1      }
+  84          void smg_show_all(unsigned char dat)
+  85          {
+  86   1        XBYTE[0xe000] = 0xff;
+  87   1        XBYTE[0xc000] = 0xff;
+  88   1        XBYTE[0xe000] = dat;
+  89   1      }
+  90          //================================================
+  91          void Delay1ms()   //@11.0592MHz
+  92          {
+  93   1        unsigned char i, j;
+  94   1      
+  95   1        _nop_();
+  96   1        _nop_();
+  97   1        _nop_();
+  98   1        i = 11;
+  99   1        j = 190;
+ 100   1        do
+ 101   1        {
+ 102   2          while (--j);
+ 103   2        } while (--i);
+ 104   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    290    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =     31       2
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+C51 COMPILER V9.60.0.0   T2                                                                01/12/2023 22:00:51 PAGE 3   
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
