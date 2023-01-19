@@ -1,0 +1,538 @@
+C51 COMPILER V9.60.0.0   MAIN                                                              01/19/2023 16:14:55 PAGE 1   
+
+
+C51 COMPILER V9.60.0.0, COMPILATION OF MODULE MAIN
+OBJECT MODULE PLACED IN .\Objects\main.obj
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE main.c OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(.\Listings\main
+                    -.lst) TABS(2) OBJECT(.\Objects\main.obj)
+
+line level    source
+
+   1          #include<stc15.h>
+   2          #include<absacc.h>
+   3          #include<intrins.h>
+   4          
+   5          #include<ds1302.h>
+   6          #include<onewire.h>
+   7          //========================================
+   8          unsigned char tab[] = {0xc0,0xf9,0xa4,0xb0,0x99,0x92,0x82,0xf8,0x80,0x90};//0~9，"-"为0xbf
+   9          unsigned char w_addr[] = {0x80,0x82,0x84,0x86,0x88,0x8a,0x8c};//ds1302写地址
+  10          unsigned char r_addr[] = {0x81,0x83,0x85,0x87,0x89,0x8b,0x8d};//ds1302写地址
+  11          unsigned char time[] = {0x50,0x59,0x23,0x00,0x00,0x00,0x00};//初始时间23时59分50秒
+  12          unsigned char dspbuf[] = {255,255,255,255,255,255,255,255};//显示缓冲
+  13          
+  14          sbit s7 = P3^0;
+  15          sbit s6 = P3^1;
+  16          sbit s5 = P3^2;
+  17          sbit s4 = P3^3;//四个独立按键映射
+  18          
+  19          unsigned int temp = 0;//预制温度参数
+  20          
+  21          unsigned char cs = 0x00;//现态
+  22          unsigned char ns = 0x00;//次态
+  23          
+  24          unsigned int smg_flash = 0;//数码管闪烁表示
+  25          unsigned char led_flash = 0;//led闪烁表示
+  26          
+  27          unsigned char led_flash_count = 0;//led闪烁次数
+  28          
+  29          unsigned char set_time[] = {0, 0, 0};//时钟设置参数
+  30          unsigned char clk_time[] = {0, 0, 0};//闹钟设置参数
+  31          unsigned char clk_time_buf[] = {0, 0, 0};//闹钟参数显示缓冲
+  32          
+  33          unsigned char clk_flag = 0;//闹钟提示标志
+  34          unsigned char clk_set_flag = 0;//闹钟设置标志
+  35          
+  36          unsigned char t0_count = 0;
+  37          unsigned char t0_h = 0;
+  38          unsigned char t0_m = 0;
+  39          unsigned char t0_s = 0;//T0计数
+  40          /*状态表
+  41          0x00 时钟状态
+  42          0x10 时钟设置_时  0x11 时钟设置_分 0x12 时钟设置_秒
+  43          0x20 闹钟设置_时  0x21 闹钟设置_分 0x22 闹钟设置_秒
+  44          0x30 闹钟提示状态
+  45          温度显示状态为按下s4，不做编码
+  46          */
+  47          //==============初始化======================
+  48          void cls();//关闭蜂鸣器、led等设备
+  49          //==============定时器0======================
+  50          void Timer0Init();//T0初始化50毫秒@11.0592MHz
+  51          void timer0_service();//T0中断服务函数
+  52          //==============数码管======================
+  53          void smg_show_bit(unsigned pos, unsigned char dat);//数码管显示一位
+  54          void smg_show_all(unsigned char dat);//数码管全显示
+C51 COMPILER V9.60.0.0   MAIN                                                              01/19/2023 16:14:55 PAGE 2   
+
+  55          void smg_show();//数码管动态显示
+  56          void buf_set_time();//时间显示设置
+  57          void buf_set_temp();//温度显示设置
+  58          void buf_set_clk();//闹钟显示设置
+  59          void Delay1ms();//@11.0592MHz,数码管动态扫描延时
+  60          void smg_show_flash(unsigned char pos);//数码管闪烁
+  61          //==============电子钟======================
+  62          void ds1302_init();//ds1302初始化
+  63          void read_time();//读取时间
+  64          void time_set(unsigned char pos);//时间设置
+  65          void clock_set(unsigned char pos);//闹钟设置
+  66          //==============温传感======================
+  67          void rd_temperature();//温度转换
+  68          void Delay(unsigned int t);//温度转换延迟
+  69          //==============led提示=====================
+  70          void clk_check();//检查闹钟
+  71          void led_flashing();//led闪烁
+  72          void led_stop();//led停止闪烁
+  73          //==============状态机======================
+  74          void statemachine();//状态机
+  75          //==============主函数======================
+  76          void main()
+  77          {
+  78   1        cls();//关闭蜂鸣器、led等设备
+  79   1        rd_temperature();//温度转换
+  80   1        ds1302_init();//ds1302初始化
+  81   1        buf_set_time();//时间显示设置
+  82   1        while(1)
+  83   1        {
+  84   2          statemachine();//状态机
+  85   2        }
+  86   1      }
+  87          //==============初始化======================
+  88          void cls()//关闭蜂鸣器、led等设备
+  89          {
+  90   1        XBYTE[0x8000] = 0xff;
+  91   1        XBYTE[0xa000] = 0x00;
+  92   1      }
+  93          //==============定时器0======================
+  94          void Timer0Init()//T0初始化50毫秒@11.0592MHz
+  95          {
+  96   1        AUXR &= 0x7F;   //定时器时钟12T模式
+  97   1        TMOD &= 0xF0;   //设置定时器模式
+  98   1        TL0 = 0x00;   //设置定时初始值
+  99   1        TH0 = 0x4C;   //设置定时初始值
+ 100   1        TF0 = 0;    //清除TF0标志
+ 101   1        ET0 = 1;
+ 102   1        EA = 1;
+ 103   1        t0_h = clk_time[0];
+ 104   1        t0_m = clk_time[1];
+ 105   1        t0_s = clk_time[2];
+ 106   1        if(((t0_h == 0) & (t0_m == 0) & (t0_s == 0)) == 1)
+ 107   1        {
+ 108   2          clk_set_flag = 0;
+ 109   2          TR0 = 0;
+ 110   2        }
+ 111   1        else
+ 112   1        {
+ 113   2          clk_set_flag = 1;
+ 114   2          TR0 = 1;
+ 115   2        }
+ 116   1      }
+C51 COMPILER V9.60.0.0   MAIN                                                              01/19/2023 16:14:55 PAGE 3   
+
+ 117          void timer0_service() interrupt 1//T0中断服务函数
+ 118          {
+ 119   1        t0_count++;
+ 120   1        if(t0_count == 20)
+ 121   1        {
+ 122   2          t0_s--;
+ 123   2          t0_count = 0;
+ 124   2          if(t0_s == 255)
+ 125   2          {
+ 126   3            t0_m--;
+ 127   3            t0_s = 59;
+ 128   3            if(t0_m == 255)
+ 129   3            {
+ 130   4              t0_h--;
+ 131   4              t0_m = 59;
+ 132   4              if(t0_h == 255)
+ 133   4              {
+ 134   5                t0_h = 0;
+ 135   5                TR0 = 0;
+ 136   5              }
+ 137   4            }
+ 138   3          }
+ 139   2        }
+ 140   1      }
+ 141          //==============数码管======================
+ 142          void smg_show_bit(unsigned pos, unsigned char dat)//数码管显示一位
+ 143          {
+ 144   1        XBYTE[0xe000] = 0xff;
+ 145   1        XBYTE[0xc000] = 0x01 << pos;
+ 146   1        XBYTE[0xe000] = dat;
+ 147   1        Delay1ms();
+ 148   1      }
+ 149          void smg_show_all(unsigned char dat)//数码管全显示
+ 150          {
+ 151   1        XBYTE[0xe000] = 0xff;
+ 152   1        XBYTE[0xc000] = 0xff;
+ 153   1        XBYTE[0xe000] = dat;
+ 154   1      }
+ 155          void smg_show()//数码管动态显示
+ 156          {
+ 157   1        unsigned char i;
+ 158   1        for(i = 0; i < 8; i++)
+ 159   1        {
+ 160   2          smg_show_bit(i, dspbuf[i]);
+ 161   2          Delay1ms();
+ 162   2        }
+ 163   1        smg_show_all(0xff);
+ 164   1      }
+ 165          void buf_set_time()//时间显示设置
+ 166          {
+ 167   1        dspbuf[0] = tab[time[2] / 16];
+ 168   1        dspbuf[1] = tab[time[2] % 16];
+ 169   1        dspbuf[2] = 0xbf;
+ 170   1        dspbuf[3] = tab[time[1] / 16];
+ 171   1        dspbuf[4] = tab[time[1] % 16];
+ 172   1        dspbuf[5] = 0xbf;
+ 173   1        dspbuf[6] = tab[time[0] / 16];
+ 174   1        dspbuf[7] = tab[time[0] % 16];
+ 175   1      }
+ 176          void buf_set_temp()//温度显示设置
+ 177          {
+ 178   1        dspbuf[0] = 255;
+C51 COMPILER V9.60.0.0   MAIN                                                              01/19/2023 16:14:55 PAGE 4   
+
+ 179   1        dspbuf[1] = 255;
+ 180   1        dspbuf[2] = 255;
+ 181   1        dspbuf[3] = 255;
+ 182   1        dspbuf[4] = 255;
+ 183   1        dspbuf[5] = tab[temp / 10];
+ 184   1        dspbuf[6] = tab[temp % 10];
+ 185   1        dspbuf[7] = 0xc6;
+ 186   1      }
+ 187          void buf_set_clk()//闹钟显示设置
+ 188          {
+ 189   1        dspbuf[0] = tab[clk_time_buf[2] / 16];
+ 190   1        dspbuf[1] = tab[clk_time_buf[2] % 16];
+ 191   1        dspbuf[2] = 0xbf;
+ 192   1        dspbuf[3] = tab[clk_time_buf[1] / 16];
+ 193   1        dspbuf[4] = tab[clk_time_buf[1] % 16];
+ 194   1        dspbuf[5] = 0xbf;
+ 195   1        dspbuf[6] = tab[clk_time_buf[0] / 16];
+ 196   1        dspbuf[7] = tab[clk_time_buf[0] % 16];
+ 197   1      }
+ 198          void Delay1ms()//@11.0592MHz,数码管动态扫描延时
+ 199          {
+ 200   1        unsigned char i, j;
+ 201   1      
+ 202   1        _nop_();
+ 203   1        _nop_();
+ 204   1        _nop_();
+ 205   1        i = 11;
+ 206   1        j = 190;
+ 207   1        do
+ 208   1        {
+ 209   2          while (--j);
+ 210   2        } while (--i);
+ 211   1      }
+ 212          void smg_show_flash(unsigned char pos)
+ 213          {
+ 214   1        switch(pos)
+ 215   1        {
+ 216   2          case 0:
+ 217   2            if(smg_flash < 100)
+ 218   2            {
+ 219   3              smg_show_bit(0, 0xff);
+ 220   3              smg_show_bit(1, 0xff);
+ 221   3              smg_flash++;
+ 222   3            }
+ 223   2            else if(smg_flash < 200)
+ 224   2            {
+ 225   3              smg_show_bit(0, dspbuf[0]);
+ 226   3              smg_show_bit(1, dspbuf[1]);
+ 227   3              smg_flash++;
+ 228   3              if(smg_flash == 200){smg_flash = 0;}
+ 229   3            }
+ 230   2            smg_show_bit(2, dspbuf[2]);
+ 231   2            smg_show_bit(3, dspbuf[3]);
+ 232   2            smg_show_bit(4, dspbuf[4]);
+ 233   2            smg_show_bit(5, dspbuf[5]);
+ 234   2            smg_show_bit(6, dspbuf[6]);
+ 235   2            smg_show_bit(7, dspbuf[7]);
+ 236   2          break;
+ 237   2          case 1:
+ 238   2            smg_show_bit(0, dspbuf[0]);
+ 239   2            smg_show_bit(1, dspbuf[1]);
+ 240   2            smg_show_bit(2, dspbuf[2]);
+C51 COMPILER V9.60.0.0   MAIN                                                              01/19/2023 16:14:55 PAGE 5   
+
+ 241   2            if(smg_flash < 100)
+ 242   2            {
+ 243   3              smg_show_bit(3, 0xff);
+ 244   3              smg_show_bit(4, 0xff);
+ 245   3              smg_flash++;
+ 246   3            }
+ 247   2            else if(smg_flash < 200)
+ 248   2            {
+ 249   3              smg_show_bit(3, dspbuf[3]);
+ 250   3              smg_show_bit(4, dspbuf[4]);
+ 251   3              smg_flash++;
+ 252   3              if(smg_flash == 200){smg_flash = 0;}
+ 253   3            }
+ 254   2            smg_show_bit(5, dspbuf[5]);
+ 255   2            smg_show_bit(6, dspbuf[6]);
+ 256   2            smg_show_bit(7, dspbuf[7]);
+ 257   2          break;
+ 258   2          case 2:
+ 259   2            smg_show_bit(0, dspbuf[0]);
+ 260   2            smg_show_bit(1, dspbuf[1]);
+ 261   2            smg_show_bit(2, dspbuf[2]);
+ 262   2            smg_show_bit(3, dspbuf[3]);
+ 263   2            smg_show_bit(4, dspbuf[4]);
+ 264   2            smg_show_bit(5, dspbuf[5]);
+ 265   2            if(smg_flash < 100)
+ 266   2            {
+ 267   3              smg_show_bit(6, 0xff);
+ 268   3              smg_show_bit(7, 0xff);
+ 269   3              smg_flash++;
+ 270   3            }
+ 271   2            else if(smg_flash < 200)
+ 272   2            {
+ 273   3              smg_show_bit(6, dspbuf[6]);
+ 274   3              smg_show_bit(7, dspbuf[7]);
+ 275   3              smg_flash++;
+ 276   3              if(smg_flash == 200){smg_flash = 0;}
+ 277   3            }     
+ 278   2          break;
+ 279   2        }
+ 280   1      }
+ 281          //==============电子钟======================
+ 282          void ds1302_init()//时钟初始化
+ 283          {
+ 284   1        char i;
+ 285   1        Write_Ds1302_Byte(0x8e,0x00);
+ 286   1        for(i = 0; i < 7; i++)
+ 287   1        {
+ 288   2          Write_Ds1302_Byte(w_addr[i],time[i]);     
+ 289   2        }
+ 290   1        Write_Ds1302_Byte(0x8e,0x80);
+ 291   1      }
+ 292          void read_time()//时钟读取
+ 293          {
+ 294   1        char i;
+ 295   1        for(i = 0; i < 7; i++)
+ 296   1        {
+ 297   2          time[i] =  Read_Ds1302_Byte(r_addr[i]);
+ 298   2        }
+ 299   1      }
+ 300          void time_set(unsigned char pos)//时间设置
+ 301          {
+ 302   1        set_time[0] = time[2] /16 * 10 + time[2] % 16;
+C51 COMPILER V9.60.0.0   MAIN                                                              01/19/2023 16:14:55 PAGE 6   
+
+ 303   1        set_time[1] = time[1] /16 * 10 + time[1] % 16;
+ 304   1        set_time[2] = time[0] /16 * 10 + time[0] % 16;
+ 305   1        switch(pos)
+ 306   1        {
+ 307   2          case 0:
+ 308   2            if(s5 == 0){smg_show();if(s5 == 0){while(s5 == 0){smg_show();}if(set_time[0] < 23){set_time[0]++;}else{
+             -set_time[0] = 0;}}}
+ 309   2            if(s4 == 0){smg_show();if(s4 == 0){while(s4 == 0){smg_show();}if(set_time[0] > 0){set_time[0]--;}else{s
+             -et_time[0] = 23;}}}
+ 310   2          break;
+ 311   2          case 1:
+ 312   2            if(s5 == 0){smg_show();if(s5 == 0){while(s5 == 0){smg_show();}if(set_time[1] < 59){set_time[1]++;}else{
+             -set_time[1] = 0;}}}
+ 313   2            if(s4 == 0){smg_show();if(s4 == 0){while(s4 == 0){smg_show();}if(set_time[1] > 0){set_time[1]--;}else{s
+             -et_time[1] = 59;}}}
+ 314   2          break;
+ 315   2          case 2:
+ 316   2            if(s5 == 0){smg_show();if(s5 == 0){while(s5 == 0){smg_show();}if(set_time[2] < 59){set_time[2]++;}else{
+             -set_time[2] = 0;}}}
+ 317   2            if(s4 == 0){smg_show();if(s4 == 0){while(s4 == 0){smg_show();}if(set_time[2] > 0){set_time[2]--;}else{s
+             -et_time[2] = 59;}}}
+ 318   2          break;
+ 319   2        }
+ 320   1        time[2] = set_time[0] / 10 *16 + set_time[0] % 10;
+ 321   1        time[1] = set_time[1] / 10 *16 + set_time[1] % 10;
+ 322   1        time[0] = set_time[2] / 10 *16 + set_time[2] % 10;
+ 323   1      }
+ 324          void clock_set(unsigned char pos)//闹钟设置
+ 325          {
+ 326   1        switch(pos)
+ 327   1        {
+ 328   2          case 0:
+ 329   2            if(s5 == 0){smg_show();if(s5 == 0){while(s5 == 0){smg_show();}if(clk_time[0] < 23){clk_time[0]++;}else{
+             -clk_time[0] = 0;}}}
+ 330   2            if(s4 == 0){smg_show();if(s4 == 0){while(s4 == 0){smg_show();}if(clk_time[0] > 0){clk_time[0]--;}else{c
+             -lk_time[0] = 23;}}}
+ 331   2          break;
+ 332   2          case 1:
+ 333   2            if(s5 == 0){smg_show();if(s5 == 0){while(s5 == 0){smg_show();}if(clk_time[1] < 59){clk_time[1]++;}else{
+             -clk_time[1] = 0;}}}
+ 334   2            if(s4 == 0){smg_show();if(s4 == 0){while(s4 == 0){smg_show();}if(clk_time[1] > 0){clk_time[1]--;}else{c
+             -lk_time[1] = 59;}}}
+ 335   2          break;
+ 336   2          case 2:
+ 337   2            if(s5 == 0){smg_show();if(s5 == 0){while(s5 == 0){smg_show();}if(clk_time[2] < 59){clk_time[2]++;}else{
+             -clk_time[2] = 0;}}}
+ 338   2            if(s4 == 0){smg_show();if(s4 == 0){while(s4 == 0){smg_show();}if(clk_time[2] > 0){clk_time[2]--;}else{c
+             -lk_time[2] = 59;}}}
+ 339   2          break;
+ 340   2        }
+ 341   1        clk_time_buf[2] = clk_time[0] / 10 *16 + clk_time[0] % 10;
+ 342   1        clk_time_buf[1] = clk_time[1] / 10 *16 + clk_time[1] % 10;
+ 343   1        clk_time_buf[0] = clk_time[2] / 10 *16 + clk_time[2] % 10;
+ 344   1      }
+ 345          //==============温传感======================
+ 346          void rd_temperature()//温度转换
+ 347          {
+ 348   1        unsigned char LSB,MSB;
+ 349   1        
+ 350   1        init_ds18b20();
+ 351   1        Write_DS18B20(0xcc);
+ 352   1        Write_DS18B20(0x44);
+C51 COMPILER V9.60.0.0   MAIN                                                              01/19/2023 16:14:55 PAGE 7   
+
+ 353   1        
+ 354   1        Delay(100);
+ 355   1        
+ 356   1        init_ds18b20();
+ 357   1        Write_DS18B20(0xcc);
+ 358   1        Write_DS18B20(0xbe);
+ 359   1        
+ 360   1        LSB = Read_DS18B20();
+ 361   1        MSB = Read_DS18B20();
+ 362   1        
+ 363   1        temp = MSB;
+ 364   1        temp = (temp << 8) | LSB;
+ 365   1        temp >>= 4;
+ 366   1      }
+ 367          void Delay(unsigned int t)//温度转换延迟
+ 368          {
+ 369   1        while(--t)
+ 370   1        {
+ 371   2          smg_show();
+ 372   2        }
+ 373   1      }
+ 374          //==============led提示=====================
+ 375          void clk_check()//检查闹钟
+ 376          {
+ 377   1        if(((time[0] == 0) & (time[1] == 0) & (time[2] == 0)) == 1){clk_flag = 1;}
+ 378   1        if(((clk_set_flag == 1) & (t0_h == 0) & (t0_m == 0) & (t0_s == 0)) == 1){clk_flag = 1;}
+ 379   1      }
+ 380          void led_flashing()//led闪烁
+ 381          {
+ 382   1        if(clk_flag == 1)
+ 383   1        {
+ 384   2          if(led_flash < 7)
+ 385   2          {
+ 386   3            XBYTE[0x8000] = 0xfe;
+ 387   3            led_flash++;
+ 388   3          }
+ 389   2          else if(led_flash < 14)
+ 390   2          {
+ 391   3            XBYTE[0x8000] = 0xff;
+ 392   3            led_flash++;
+ 393   3            if(led_flash == 14)
+ 394   3            {
+ 395   4              led_flash = 0;
+ 396   4              led_flash_count++;
+ 397   4            }
+ 398   3          }
+ 399   2          if(led_flash_count == 25)
+ 400   2          {
+ 401   3            clk_flag = 0;
+ 402   3            led_flash_count = 0;
+ 403   3            led_flash = 0;
+ 404   3            clk_set_flag = 0;
+ 405   3            ns = 0x00;
+ 406   3          }
+ 407   2        }
+ 408   1      }
+ 409          void led_stop()//led停止闪烁
+ 410          {
+ 411   1        if((s4 & s5 & s6 & s7) == 0)
+ 412   1        {
+ 413   2          if((s4 & s5 & s6 & s7) == 0)
+ 414   2          {
+C51 COMPILER V9.60.0.0   MAIN                                                              01/19/2023 16:14:55 PAGE 8   
+
+ 415   3            while((s4 & s5 & s6 & s7) == 0)
+ 416   3            {
+ 417   4              smg_show();
+ 418   4            }
+ 419   3            clk_flag = 0; 
+ 420   3            clk_set_flag = 0;
+ 421   3            led_flash = 0; 
+ 422   3            XBYTE[0x8000] = 0xff;
+ 423   3            ns = 0x00;
+ 424   3          }
+ 425   2        }
+ 426   1      }
+ 427          //========================================
+ 428          void statemachine()//状态机
+ 429          {
+ 430   1        cs = ns;
+ 431   1        switch(cs)
+ 432   1        {
+ 433   2          case 0x00:
+ 434   2            if(s7 == 0){smg_show(); if(s7 == 0){while(s7 == 0){smg_show();}buf_set_time(); ns = 0x10;}}
+ 435   2            if(s6 == 0){smg_show(); if(s6 == 0){while(s6 == 0){smg_show();}buf_set_time(); ns = 0x20;}}
+ 436   2            if(s4 == 0){smg_show(); if(s4 == 0){while(s4 == 0){buf_set_temp();smg_show();rd_temperature();}buf_set_
+             -time(); ns = 0x00;}}
+ 437   2            if(clk_flag == 1){ns = 0x30;}
+ 438   2            else{buf_set_time();}
+ 439   2          break;
+ 440   2          case 0x10:
+ 441   2            if(s7 == 0){smg_show(); if(s7 == 0){while(s7 == 0){smg_show();} ns = 0x11;}}
+ 442   2            if(clk_flag == 1){ns = 0x30;}
+ 443   2            else{buf_set_time();}
+ 444   2          break;
+ 445   2          case 0x11:
+ 446   2            if(s7 == 0){smg_show(); if(s7 == 0){while(s7 == 0){smg_show();} ns = 0x12;}}
+ 447   2            if(clk_flag == 1){ns = 0x30;}
+ 448   2            else{buf_set_time();}
+ 449   2          break;
+ 450   2          case 0x12:
+ 451   2            if(s7 == 0){smg_show(); if(s7 == 0){while(s7 == 0){smg_show();} ns = 0x00;}}
+ 452   2            if(clk_flag == 1){ns = 0x30;}
+ 453   2            else{buf_set_time();ds1302_init();}
+ 454   2          break;
+ 455   2          case 0x20:
+ 456   2            if(s6 == 0){smg_show(); if(s6 == 0){while(s6 == 0){smg_show();} ns = 0x21;}}
+ 457   2            if(clk_flag == 1){ns = 0x30;}
+ 458   2            else{TR0 = 0;clk_set_flag = 1;buf_set_time();}
+ 459   2          break;
+ 460   2          case 0x21:
+ 461   2            if(s6 == 0){smg_show(); if(s6 == 0){while(s6 == 0){smg_show();} ns = 0x22;}}
+ 462   2            if(clk_flag == 1){ns = 0x30;}
+ 463   2            else{buf_set_time();}
+ 464   2          break;
+ 465   2          case 0x22:
+ 466   2            if(s6 == 0){smg_show(); if(s6 == 0){while(s6 == 0){smg_show();} ns = 0x00;}}
+ 467   2            if(clk_flag == 1){ns = 0x30;}
+ 468   2            else{buf_set_time();Timer0Init();}
+ 469   2          break;
+ 470   2          case 0x30:
+ 471   2            if((s4 & s5 & s6 & s7) == 0){smg_show(); if((s4 & s5 & s6 & s7) == 0){while((s4 & s5 & s6 & s7) == 0){s
+             -mg_show();} ns = 0x00;}}
+ 472   2            if(clk_flag == 1){ns = 0x30;}
+ 473   2            else{buf_set_time();}
+ 474   2          break;
+C51 COMPILER V9.60.0.0   MAIN                                                              01/19/2023 16:14:55 PAGE 9   
+
+ 475   2        }
+ 476   1        if(cs == 0x00){clk_check();buf_set_time();smg_show();read_time();}
+ 477   1        else if(cs == 0x10){smg_show_flash(0);time_set(0);}
+ 478   1        else if(cs == 0x11){smg_show_flash(1);time_set(1);}
+ 479   1        else if(cs == 0x12){smg_show_flash(2);time_set(2);}
+ 480   1        else if(cs == 0x20){buf_set_clk();smg_show_flash(0);clock_set(0);read_time();}
+ 481   1        else if(cs == 0x21){buf_set_clk();smg_show_flash(1);clock_set(1);read_time();}
+ 482   1        else if(cs == 0x22){buf_set_clk();smg_show_flash(2);clock_set(2);read_time();}
+ 483   1        else if(cs == 0x30){buf_set_time();smg_show();read_time();led_flashing();led_stop();read_time();}
+ 484   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   2518    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =     62       6
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
