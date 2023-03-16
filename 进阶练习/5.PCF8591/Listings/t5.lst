@@ -1,0 +1,140 @@
+C51 COMPILER V9.60.0.0   T5                                                                03/16/2023 13:25:28 PAGE 1   
+
+
+C51 COMPILER V9.60.0.0, COMPILATION OF MODULE T5
+OBJECT MODULE PLACED IN .\Objects\t5.obj
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE t5.c OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(.\Listings\t5.lst
+                    -) TABS(2) OBJECT(.\Objects\t5.obj)
+
+line level    source
+
+   1          #include<stc15.h>
+   2          #include<intrins.h>
+   3          #include<absacc.h>
+   4          
+   5          #include<iic.h>
+   6          
+   7          unsigned char tab[] = {0xc0,0xf9,0xa4,0xb0,0x99,0x92,0x82,0xf8,0x80,0x90,0xff};
+   8          unsigned char dspbuf[] = {255, 255, 255, 255, 255, 255, 255, 255};
+   9          unsigned char ad1;
+  10          unsigned char ad2;
+  11          
+  12          
+  13          void cls();
+  14          unsigned char ad_read(unsigned char addr);
+  15          void da_wirte(unsigned char addr, unsigned dat);
+  16          void smg_show_bit(unsigned pos, unsigned dat);//数码管显示一位
+  17          void smg_show_all(unsigned dat);//数码管全部显示
+  18          void smg_show();//数码管动态显示
+  19          void buf_set();//设置数码管
+  20          void Delay1ms();
+  21          
+  22          void main()
+  23          {
+  24   1          cls();
+  25   1          while(1)
+  26   1          {
+  27   2          ad1 = ad_read(0x43);//41为光敏电阻，43为电压输入
+  28   2          ad2 = ad_read(0x41);//41为光敏电阻，43为电压输入
+  29   2              smg_show();
+  30   2              buf_set();
+  31   2              da_wirte(0x43,127);
+  32   2          }
+  33   1      }
+  34          void cls()
+  35          {
+  36   1        XBYTE[0x8000] = 0xff;
+  37   1          XBYTE[0xa000] = 0x00;
+  38   1      }
+  39          unsigned char ad_read(unsigned char addr)
+  40          {
+  41   1          unsigned char temp;
+  42   1          IIC_Start();
+  43   1          IIC_SendByte(0x90);
+  44   1          IIC_WaitAck();
+  45   1          IIC_SendByte(addr);
+  46   1          IIC_WaitAck();
+  47   1          IIC_Start();
+  48   1          IIC_SendByte(0x91);
+  49   1          IIC_WaitAck();
+  50   1          temp = IIC_RecByte();
+  51   1          IIC_SendAck(1);
+  52   1          IIC_Stop();
+  53   1          return temp;
+  54   1      }
+C51 COMPILER V9.60.0.0   T5                                                                03/16/2023 13:25:28 PAGE 2   
+
+  55          
+  56          void da_wirte(unsigned char addr,unsigned dat)
+  57          {
+  58   1          IIC_Start();
+  59   1          IIC_SendByte(0x90);
+  60   1          IIC_WaitAck();
+  61   1          IIC_SendByte(addr);
+  62   1          IIC_WaitAck();
+  63   1          IIC_SendByte(dat);
+  64   1          IIC_WaitAck();
+  65   1          IIC_Stop();
+  66   1      }
+  67          void smg_show_bit(unsigned pos, unsigned dat)
+  68          {
+  69   1          XBYTE[0xe000] = 0xff;
+  70   1          XBYTE[0xc000] = 0x01 << pos;
+  71   1          XBYTE[0xe000] = dat;
+  72   1          Delay1ms();
+  73   1      }
+  74          void smg_show_all(unsigned dat)
+  75          {
+  76   1          XBYTE[0xe000] = 0xff;
+  77   1          XBYTE[0xc000] = 0xff;
+  78   1          XBYTE[0xe000] = dat;
+  79   1      }
+  80          void smg_show()
+  81          {
+  82   1          unsigned char i;
+  83   1          for(i = 0; i < 8; i++)
+  84   1          {
+  85   2              smg_show_bit(i, dspbuf[i]);
+  86   2              Delay1ms();
+  87   2          }
+  88   1          smg_show_all(0xff);
+  89   1      }
+  90          void Delay1ms()//@11.0592MHz
+  91          {
+  92   1        unsigned char i, j;
+  93   1      
+  94   1        _nop_();
+  95   1        _nop_();
+  96   1        _nop_();
+  97   1        i = 11;
+  98   1        j = 190;
+  99   1        do
+ 100   1        {
+ 101   2          while (--j);
+ 102   2        } while (--i);
+ 103   1      }
+ 104          void buf_set()
+ 105          {
+ 106   1        dspbuf[0] = tab[(ad2 / 100) % 10];
+ 107   1          dspbuf[1] = tab[(ad2 / 10) % 10];
+ 108   1          dspbuf[2] = tab[ad2 % 10];
+ 109   1          dspbuf[5] = tab[(ad1 / 100) % 10];
+ 110   1          dspbuf[6] = tab[(ad1 / 10) % 10];
+ 111   1          dspbuf[7] = tab[ad1 % 10];
+ 112   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    332    ----
+C51 COMPILER V9.60.0.0   T5                                                                03/16/2023 13:25:28 PAGE 3   
+
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =     21       6
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
