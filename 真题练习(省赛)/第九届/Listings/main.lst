@@ -1,0 +1,361 @@
+C51 COMPILER V9.60.0.0   MAIN                                                              03/17/2023 11:29:30 PAGE 1   
+
+
+C51 COMPILER V9.60.0.0, COMPILATION OF MODULE MAIN
+OBJECT MODULE PLACED IN .\Objects\main.obj
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE main.c OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(.\Listings\main
+                    -.lst) TABS(2) OBJECT(.\Objects\main.obj)
+
+line level    source
+
+   1          #include<stc15.h>
+   2          #include<intrins.h>
+   3          #include<absacc.h>
+   4          
+   5          #include<iic.h>
+   6          //****************************************************
+   7          unsigned char tab[] = {0xc0,0xf9,0xa4,0xb0,0x99,0x92,0x82,0xf8,0x80,0x90};//0~9，"-"为0xbf
+   8          unsigned char dspbuf[] = {255,255,255,255,255,255,255,255};//显示缓冲
+   9          
+  10          sbit s7 = P3^0;
+  11          sbit s6 = P3^1;
+  12          sbit s5 = P3^2;
+  13          sbit s4 = P3^3;//四个独立按键映射
+  14          
+  15          unsigned char ad = 0;//ad转化数值
+  16          unsigned char light = 1;//亮度
+  17          
+  18          bit led_value = 0;//led启动标志
+  19          unsigned char led_t = 0;//led流动周期
+  20          unsigned char led_mode = 1;//led工作模式模式
+  21          bit smg_value = 0;//数码管启动标志
+  22          unsigned char time_mode = 4;//数码管工作时间显示模式
+  23          
+  24          unsigned char cs = 0x00;//现态
+  25          unsigned char ns = 0x00;//次态
+  26          
+  27          unsigned int timer0_count = 0;//定时器0 10ms计数
+  28          unsigned int flash_count = 0;//闪烁计数
+  29          unsigned char pwm_count = 0;
+  30          
+  31          unsigned char pwm_value = 25;//pwm等级 50 75 100 
+  32          unsigned char pwm = 0xff;
+  33          //****************************************************
+  34          void cls();//关闭无关设备
+  35          void statemachine();//状态机
+  36          void smg_show_bit(unsigned pos, unsigned char dat);//数码管显示一位
+  37          void smg_show_all(unsigned char dat);//数码管全显示
+  38          void smg_show();//数码管动态显示
+  39          void buf_work_mode();//数码管工作模式显示设置
+  40          void buf_time_mode();//数码管时间模式显示设置
+  41          void buf_light_mode();//数码管亮度显示设置
+  42          void Delay1ms();//@11.0592MHz,数码管动态扫描延时
+  43          void key_s7();//s7led开关检测
+  44          void led(char mode);//led显示
+  45          void timer0_init();//@11.0592MHz 10ms定时
+  46          void timer0_service();//定时器0中断服务
+  47          void led_light();//led亮度控制
+  48          void ad_write(unsigned addr, unsigned dat);//iic写入
+  49          unsigned char ad_read(unsigned char addr);//iic读取
+  50          //****************************************************
+  51          void main()
+  52          {
+  53   1        cls();
+  54   1        timer0_init();
+C51 COMPILER V9.60.0.0   MAIN                                                              03/17/2023 11:29:30 PAGE 2   
+
+  55   1        while(1)
+  56   1        {
+  57   2          statemachine();
+  58   2        }
+  59   1      }
+  60          //****************************************************
+  61          void cls()
+  62          {
+  63   1        XBYTE[0x8000] = 0xff;
+  64   1        XBYTE[0xa000] = 0x00;
+  65   1      }
+  66          
+  67          void statemachine()
+  68          {
+  69   1        cs = ns;
+  70   1      
+  71   1        switch (cs)
+  72   1        {
+  73   2        case 0x00:
+  74   2          if(s6 == 0){smg_show();if(s6 == 0){while(s6 == 0){smg_show();}ns = 0x01; smg_value = 1;}}
+  75   2          if(s4 == 0){buf_light_mode();smg_value = 1;while(s4 == 0){smg_show();led_light();buf_light_mode();led(le
+             -d_mode);}smg_value = 0;}
+  76   2          break;
+  77   2        case 0x01:
+  78   2          if(s6 == 0){smg_show();if(s6 == 0){while(s6 == 0){smg_show();}ns = 0x02; flash_count = 0;}}
+  79   2          if(s5 == 0){smg_show();if(s5 == 0){while(s5 == 0){buf_work_mode();smg_show();led(led_mode);}if(++led_mod
+             -e == 5){led_mode = 1;}led_t = 0;}}
+  80   2          if(s4 == 0){smg_show();if(s4 == 0){while(s4 == 0){buf_work_mode();smg_show();led(led_mode);}if(--led_mod
+             -e == 0){led_mode = 4;}led_t = 0;}}
+  81   2          break;
+  82   2        case 0x02:
+  83   2          if(s6 == 0){smg_show();if(s6 == 0){while(s6 == 0){smg_show();}ns = 0x00; smg_value = 0;}} 
+  84   2          if(s5 == 0){smg_show();if(s5 == 0){while(s5 == 0){buf_time_mode();smg_show();led(led_mode);}if(++time_mo
+             -de >= 13){time_mode = 4;}}}
+  85   2          if(s4 == 0){smg_show();if(s4 == 0){while(s4 == 0){buf_time_mode();smg_show();led(led_mode);}if(--time_mo
+             -de <= 3){time_mode = 12;}}}
+  86   2          break;
+  87   2        }
+  88   1        led_light();
+  89   1        buf_work_mode();
+  90   1        buf_time_mode();
+  91   1        smg_show();
+  92   1        led(led_mode);
+  93   1        key_s7();
+  94   1      }
+  95          
+  96          void smg_show_bit(unsigned pos, unsigned char dat)
+  97          {
+  98   1        XBYTE[0xe000] = 0xff;
+  99   1        XBYTE[0xc000] = 0x01 << pos;
+ 100   1        XBYTE[0xe000] = dat;
+ 101   1        Delay1ms();
+ 102   1      }
+ 103          
+ 104          void smg_show_all(unsigned char dat)
+ 105          {
+ 106   1        XBYTE[0xe000] = 0xff;
+ 107   1        XBYTE[0xc000] = 0xff;
+ 108   1        XBYTE[0xe000] = dat;
+ 109   1      }
+ 110          
+ 111          void smg_show()
+C51 COMPILER V9.60.0.0   MAIN                                                              03/17/2023 11:29:30 PAGE 3   
+
+ 112          {
+ 113   1        unsigned char i;
+ 114   1        if(smg_value == 1)
+ 115   1        {
+ 116   2          for(i = 0; i < 8; i++)
+ 117   2          {
+ 118   3            smg_show_bit(i, dspbuf[i]);
+ 119   3            led(led_mode);
+ 120   3            Delay1ms();   
+ 121   3          }
+ 122   2          smg_show_all(0xff);
+ 123   2        }
+ 124   1        else{return;}
+ 125   1      }
+ 126          
+ 127          void buf_work_mode()
+ 128          {
+ 129   1        if(ns == 0x01)
+ 130   1        {
+ 131   2          if(flash_count < 400)
+ 132   2          {
+ 133   3            dspbuf[0] = 0xff;
+ 134   3            dspbuf[1] = 0xff;
+ 135   3            dspbuf[2] = 0xff;
+ 136   3          }
+ 137   2          else
+ 138   2          {
+ 139   3            dspbuf[0] = 0xbf;
+ 140   3            dspbuf[1] = tab[led_mode];
+ 141   3            dspbuf[2] = 0xbf;
+ 142   3          }
+ 143   2        }
+ 144   1        else
+ 145   1        {
+ 146   2          dspbuf[0] = 0xbf;
+ 147   2          dspbuf[1] = tab[led_mode];
+ 148   2          dspbuf[2] = 0xbf;
+ 149   2        }
+ 150   1      }
+ 151          void buf_time_mode()
+ 152          {
+ 153   1        if(ns == 0x02)
+ 154   1        {
+ 155   2          if(flash_count < 400)
+ 156   2          {
+ 157   3            dspbuf[4] = 0xff;
+ 158   3            dspbuf[5] = 0xff;
+ 159   3            dspbuf[6] = 0xff;
+ 160   3            dspbuf[7] = 0xff;
+ 161   3          }
+ 162   2          else
+ 163   2          {
+ 164   3            if((time_mode / 10) == 0){dspbuf[4] = 255;}
+ 165   3            else{dspbuf[4] = tab[time_mode / 10];}
+ 166   3            dspbuf[5] = tab[time_mode % 10];
+ 167   3            dspbuf[6] = tab[0];
+ 168   3            dspbuf[7] = tab[0];
+ 169   3          }
+ 170   2        }
+ 171   1        else
+ 172   1        {
+ 173   2          if((time_mode / 10) == 0){dspbuf[4] = 255;}
+C51 COMPILER V9.60.0.0   MAIN                                                              03/17/2023 11:29:30 PAGE 4   
+
+ 174   2          else{dspbuf[4] = tab[time_mode / 10];}
+ 175   2          dspbuf[5] = tab[time_mode % 10];
+ 176   2          dspbuf[6] = tab[0];
+ 177   2          dspbuf[7] = tab[0];
+ 178   2        }
+ 179   1      }
+ 180          void buf_light_mode()
+ 181          {
+ 182   1        dspbuf[0] = 0xff;
+ 183   1        dspbuf[1] = 0xff;
+ 184   1        dspbuf[2] = 0xff;
+ 185   1        dspbuf[3] = 0xff;
+ 186   1        dspbuf[4] = 0xff;
+ 187   1        dspbuf[5] = 0xff;
+ 188   1          dspbuf[6] = 0xbf;
+ 189   1          dspbuf[7] = tab[light];
+ 190   1      }
+ 191          void Delay1ms()
+ 192          {
+ 193   1        unsigned char i, j;
+ 194   1        _nop_();
+ 195   1        _nop_();
+ 196   1        _nop_();
+ 197   1        i = 11;
+ 198   1        j = 190;
+ 199   1        do
+ 200   1        {
+ 201   2          while (--j);
+ 202   2        } while (--i);
+ 203   1      }
+ 204          
+ 205          void key_s7()
+ 206          {
+ 207   1        if(s7 == 0)
+ 208   1        {
+ 209   2          smg_show();
+ 210   2          if(s7 == 0)
+ 211   2          {
+ 212   3            while(s7 == 0)
+ 213   3            {
+ 214   4              smg_show();
+ 215   4            }
+ 216   3            led_value = ~led_value;
+ 217   3          }
+ 218   2        }
+ 219   1      }
+ 220          
+ 221          void led(char mode)
+ 222          {
+ 223   1        if(led_value == 0){XBYTE[0x8000] = 0xff; led_t = 0;}
+ 224   1        else
+ 225   1        {
+ 226   2          switch (mode)
+ 227   2          {
+ 228   3          case 1:
+ 229   3            XBYTE[0x8000] = ~((0x01 & pwm) << led_t);
+ 230   3            break;
+ 231   3          case 2:
+ 232   3            XBYTE[0x8000] = ~((0x80 & pwm) >> led_t);
+ 233   3            break;
+ 234   3          case 3:
+ 235   3            if(led_t < 4){XBYTE[0x8000] = ~(((0x01 & pwm)<< led_t) | ((0x80 & pwm)>> led_t));}
+C51 COMPILER V9.60.0.0   MAIN                                                              03/17/2023 11:29:30 PAGE 5   
+
+ 236   3            else{led_t -= 4;}
+ 237   3            break;
+ 238   3          case 4:
+ 239   3            if(led_t < 4){XBYTE[0x8000] = ~(((0x08 & pwm)>> led_t) | ((0x10 & pwm)<< led_t));}
+ 240   3            else{led_t -= 4;}
+ 241   3            break;
+ 242   3          }
+ 243   2        }
+ 244   1      }
+ 245          
+ 246          void timer0_init()
+ 247          {
+ 248   1        AUXR |= 0x80;   //定时器时钟1T模式
+ 249   1        TMOD &= 0xF0;   //设置定时器模式
+ 250   1        TL0 = 0xCD;   //设置定时初始值
+ 251   1        TH0 = 0xD4;   //设置定时初始值
+ 252   1        TF0 = 0;    //清除TF0标志
+ 253   1        TR0 = 1;    //定时器0开始计时
+ 254   1      
+ 255   1        ET0 = 1;
+ 256   1        EA = 1;
+ 257   1      }
+ 258          void timer0_service() interrupt 1
+ 259          {
+ 260   1        if(led_value == 1)
+ 261   1        {
+ 262   2          timer0_count++;
+ 263   2          if(timer0_count == time_mode * 100)
+ 264   2          {
+ 265   3            led_t++;
+ 266   3            timer0_count = 0;
+ 267   3            if(led_t == 8){led_t = 0;}
+ 268   3          }
+ 269   2        }
+ 270   1        else{timer0_count = 0;}
+ 271   1        if(smg_value == 1)
+ 272   1        {
+ 273   2          flash_count++;
+ 274   2          if(flash_count == 800)
+ 275   2          {
+ 276   3            flash_count = 0;
+ 277   3          }
+ 278   2        } 
+ 279   1        else{flash_count = 0;}
+ 280   1        pwm_count++;
+ 281   1        if(pwm_count < pwm_value){pwm = 0xff;}
+ 282   1        else if(pwm_count < 10){pwm = 0x00;}
+ 283   1        else if(pwm_count == 10){pwm = 0xff;pwm_count = 0;}
+ 284   1      }
+ 285          
+ 286          unsigned char ad_read(unsigned char addr) 
+ 287          {
+ 288   1        unsigned char temp;
+ 289   1          IIC_Start();
+ 290   1          IIC_SendByte(0x90);
+ 291   1          IIC_WaitAck();
+ 292   1          IIC_SendByte(addr);
+ 293   1          IIC_WaitAck();
+ 294   1      
+ 295   1          IIC_Start();
+ 296   1          IIC_SendByte(0x91);
+ 297   1          IIC_WaitAck();
+C51 COMPILER V9.60.0.0   MAIN                                                              03/17/2023 11:29:30 PAGE 6   
+
+ 298   1          temp = IIC_RecByte();
+ 299   1          IIC_SendAck(1);
+ 300   1          IIC_Stop();
+ 301   1          return temp;
+ 302   1      }
+ 303          void ad_write(unsigned addr, unsigned dat)
+ 304          {
+ 305   1        IIC_Start();
+ 306   1        IIC_SendByte(0x90);
+ 307   1        IIC_WaitAck();
+ 308   1        IIC_SendByte(addr);
+ 309   1        IIC_WaitAck();
+ 310   1        IIC_SendByte(dat);
+ 311   1        IIC_WaitAck();
+ 312   1        IIC_Stop();
+ 313   1      }
+ 314          void led_light()
+ 315          {
+ 316   1        ad = ad_read(0x43);
+ 317   1        if((0 <= ad ) && (ad < 64)){light = 1;pwm_value = 1;}
+ 318   1        else if((64 <= ad ) && (ad < 128)){light = 2;pwm_value = 4;}
+ 319   1        else if((128 <= ad ) && (ad < 192)){light = 3;pwm_value = 7;}
+ 320   1        else if((192 <= ad ) && (ad < 256)){light = 4;pwm_value = 10;}
+ 321   1      }
+ 322          //****************************************************
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   1175    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =     32       7
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =      2    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
