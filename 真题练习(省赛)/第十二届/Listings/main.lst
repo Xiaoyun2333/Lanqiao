@@ -1,0 +1,368 @@
+C51 COMPILER V9.60.0.0   MAIN                                                              03/24/2023 13:15:49 PAGE 1   
+
+
+C51 COMPILER V9.60.0.0, COMPILATION OF MODULE MAIN
+OBJECT MODULE PLACED IN .\Objects\main.obj
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE main.c OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(.\Listings\main
+                    -.lst) TABS(2) OBJECT(.\Objects\main.obj)
+
+line level    source
+
+   1          #include<stc15.h>
+   2          #include<intrins.h>
+   3          #include<iic.h>
+   4          #include<onewire.h>
+   5          //********************************************************
+   6          sbit c0 = P4^4;
+   7          sbit c1 = P4^2;
+   8          sbit c2 = P3^5;
+   9          sbit c3 = P3^4;
+  10          
+  11          sbit r0 = P3^0;
+  12          sbit r1 = P3^1;
+  13          sbit r2 = P3^2;
+  14          sbit r3 = P3^3;//矩阵行列
+  15          
+  16          unsigned char tab1[] = {0xc0,0xf9,0xa4,0xb0,0x99,0x92,0x82,0xf8,0x80,0x90,0xff,0xc6,0x8c,0x88};//c为0xc6,
+             -a为0x88,p为0x8c
+  17          unsigned char tab2[] = {0x01,0x02,0x04,0x08,0x10,0x20,0x40,0x80};
+  18          unsigned char smg_buf[] = {10,10,10,10,10,10,10,10};
+  19          unsigned char smg_point[] = {0,0,0,0,0,0,0,0};
+  20          unsigned char led_buf[] = {0,0,0,0,0,0,0,0};
+  21          
+  22          unsigned char key_count = 0;
+  23          unsigned char smg_count = 0;
+  24          unsigned char smg_bit_count = 0;//中断计数变量
+  25          
+  26          unsigned char key_val,key_down,key_old,key_up;//记录按键
+  27          
+  28          unsigned char smg_mode = 0;//数码管显示模式
+  29          unsigned char led_mod = 0;//led显示模式
+  30          bit dac_mod = 0;//dac工作模式
+  31          unsigned char temp_p = 25;//参考温度
+  32          unsigned char temp_p_old = 25;//参考温度副本
+  33          
+  34          float temp = 0;//温度
+  35          int dac = 0;//dac数据
+  36          //********************************************************
+  37          void cls();//关闭无关设备
+  38          void tiemr0_init();//t0初始化 1ms
+  39          void timer0_service();//t0服务函数
+  40          //********************************************************
+  41          unsigned char key_scan();//按键扫描
+  42          void key_proc();//按键处理
+  43          //********************************************************
+  44          void key_proc();//按键处理
+  45          void smg_proc();//数码管处理
+  46          void led_proc();//led处理
+  47          void ex_proc();//外设处理
+  48          //********************************************************
+  49          void smg_show(unsigned char wela,unsigned char dula,unsigned char point);//数码管显示
+  50          void led_show(unsigned char addr,unsigned char enable);//led显示
+  51          //********************************************************
+  52          float onewire_read();//读出温度
+  53          void Delay750ms();//@12.000MHz
+C51 COMPILER V9.60.0.0   MAIN                                                              03/24/2023 13:15:49 PAGE 2   
+
+  54          //********************************************************
+  55          void da_write(unsigned char dat);//da输出
+  56          //********************************************************
+  57          void main()
+  58          {
+  59   1          cls();
+  60   1          onewire_read();
+  61   1          Delay750ms();
+  62   1          tiemr0_init();
+  63   1          while (1)
+  64   1          {
+  65   2              ex_proc();
+  66   2              key_proc();
+  67   2              smg_proc();
+  68   2              led_proc();
+  69   2              
+  70   2          }
+  71   1          
+  72   1      }//********************************************************
+  73          void cls()//关闭无关设备
+  74          {
+  75   1          P2 = (P2 & 0x1f) | 0x80;
+  76   1          P0 = 0xff;
+  77   1          P2 = (P2 & 0x1f) | 0xa0;
+  78   1          P0 = 0x00;
+  79   1          P2 = P2 & 0x1f;
+  80   1      }
+  81          void tiemr0_init()//t0初始化
+  82          {
+  83   1          AUXR |= 0x80;   //定时器时钟1T模式
+  84   1        TMOD &= 0xF0;   //设置定时器模式
+  85   1        TL0 = 0x20;   //设置定时初始值
+  86   1        TH0 = 0xD1;   //设置定时初始值
+  87   1        TF0 = 0;    //清除TF0标志
+  88   1        TR0 = 1;    //定时器0开始计时
+  89   1      
+  90   1          ET0 = 1;
+  91   1          EA = 1;
+  92   1      }
+  93          void timer0_service() interrupt 1//t0服务函数
+  94          { 
+  95   1          if(++key_count == 10) key_count = 0;
+  96   1          if(++smg_count == 500) smg_count = 0;
+  97   1          if(++smg_bit_count == 8) smg_bit_count = 0;
+  98   1          smg_show(smg_bit_count,smg_buf[smg_bit_count],smg_point[smg_bit_count]);
+  99   1          led_show(smg_bit_count,led_buf[smg_bit_count]);
+ 100   1      }
+ 101          //********************************************************
+ 102          unsigned char key_scan()//按键扫描
+ 103          {
+ 104   1          unsigned char temp = 0;
+ 105   1          c0 = 0; c1 = 1; c2 = 1; c3 = 1;
+ 106   1          if(r3 == 0)temp = 4;
+ 107   1          if(r2 == 0)temp = 5;
+ 108   1          if(r1 == 0)temp = 6;
+ 109   1          if(r0 == 0)temp = 7;
+ 110   1          c0 = 1; c1 = 0; c2 = 1; c3 = 1;
+ 111   1          if(r3 == 0)temp = 8;
+ 112   1          if(r2 == 0)temp = 9;
+ 113   1          if(r1 == 0)temp = 10;
+ 114   1          if(r0 == 0)temp = 11;
+ 115   1          c0 = 1; c1 = 1; c2 = 0; c3 = 1;
+C51 COMPILER V9.60.0.0   MAIN                                                              03/24/2023 13:15:49 PAGE 3   
+
+ 116   1          if(r3 == 0)temp = 12;
+ 117   1          if(r2 == 0)temp = 13;
+ 118   1          if(r1 == 0)temp = 14;
+ 119   1          if(r0 == 0)temp = 15;
+ 120   1          c0 = 1; c1 = 1; c2 = 1; c3 = 0;
+ 121   1          if(r3 == 0)temp = 16;
+ 122   1          if(r2 == 0)temp = 17;
+ 123   1          if(r1 == 0)temp = 18;
+ 124   1          if(r0 == 0)temp = 19;
+ 125   1          return temp;
+ 126   1      
+ 127   1      }
+ 128          void key_proc()//按键处理
+ 129          {
+ 130   1          if(key_count) return;
+ 131   1          key_count = 1;
+ 132   1      
+ 133   1          key_val = key_scan();
+ 134   1          key_down = key_val & (key_old ^ key_val);
+ 135   1          key_up = ~key_val & (key_old ^ key_val);
+ 136   1          key_old = key_val;
+ 137   1      
+ 138   1          switch (key_up)
+ 139   1          {
+ 140   2          case 4:
+ 141   2              if(++smg_mode == 3) smg_mode = 0;
+ 142   2              if(smg_mode == 2) temp_p = temp_p_old;
+ 143   2              break;
+ 144   2          case 5:
+ 145   2              dac_mod = ~dac_mod;
+ 146   2              break;
+ 147   2          case 8:
+ 148   2              if(smg_mode == 1){--temp_p_old;}
+ 149   2              break;
+ 150   2          case 9:
+ 151   2              if(smg_mode == 1){++temp_p_old;}
+ 152   2          }
+ 153   1      }
+ 154          void smg_proc()//数码管处理
+ 155          {
+ 156   1          if(smg_count) return;
+ 157   1          smg_count = 1;
+ 158   1      
+ 159   1          temp = onewire_read();
+ 160   1      
+ 161   1          switch(smg_mode)
+ 162   1          {
+ 163   2              case 0:
+ 164   2                  smg_buf[0] = 11;
+ 165   2                  smg_buf[4] = temp / 10;
+ 166   2            smg_buf[5] = (unsigned char)temp % 10;
+ 167   2            smg_buf[6] = (unsigned int)(temp * 10) % 10;
+ 168   2            smg_buf[7] = (unsigned int)(temp * 100) % 10;
+ 169   2                  smg_point[5] = 1;
+ 170   2                  break;
+ 171   2              case 1:
+ 172   2                  smg_buf[0] = 12;
+ 173   2                  smg_buf[4] = 10;
+ 174   2                  smg_buf[5] = 10;
+ 175   2                  smg_buf[6] = temp_p_old / 10;
+ 176   2                  smg_buf[7] = temp_p_old % 10;
+ 177   2                  smg_point[5] = 0;
+C51 COMPILER V9.60.0.0   MAIN                                                              03/24/2023 13:15:49 PAGE 4   
+
+ 178   2                  break;
+ 179   2              case 2:
+ 180   2                  dac = dac * 100 / 51;
+ 181   2                  smg_buf[0] = 13;
+ 182   2                  smg_buf[4] = 10;
+ 183   2                  smg_buf[5] = dac / 100;
+ 184   2                  smg_buf[6] = dac / 10 % 10;
+ 185   2                  smg_buf[7] = dac % 10 % 10;
+ 186   2                  smg_point[5] = 1;
+ 187   2                  smg_point[6] = 0;
+ 188   2                  break;
+ 189   2          }
+ 190   1      }
+ 191          void led_proc()//led处理
+ 192          {
+ 193   1          switch (smg_mode)
+ 194   1          {
+ 195   2          case 0:
+ 196   2              led_buf[1] = 1;
+ 197   2              led_buf[2] = 0;
+ 198   2              led_buf[3] = 0;
+ 199   2              break;   
+ 200   2          case 1:
+ 201   2              led_buf[1] = 0;
+ 202   2              led_buf[2] = 1;
+ 203   2              led_buf[3] = 0;
+ 204   2              break;
+ 205   2          case 2:
+ 206   2              led_buf[1] = 0;
+ 207   2              led_buf[2] = 0;
+ 208   2              led_buf[3] = 1;
+ 209   2              break;  
+ 210   2          }
+ 211   1          if(dac_mod == 0) led_buf[0] = 1;
+ 212   1          else led_buf[0] = 0;
+ 213   1      }
+ 214          void ex_proc()//外设处理
+ 215          {
+ 216   1          if(dac_mod == 0)
+ 217   1          {
+ 218   2              if(temp < temp_p)
+ 219   2              {
+ 220   3                  dac = 0; 
+ 221   3                  da_write(0);
+ 222   3              }
+ 223   2              else
+ 224   2              {
+ 225   3                  dac = 255; 
+ 226   3                  da_write(255);
+ 227   3              }
+ 228   2          }
+ 229   1          else
+ 230   1          {
+ 231   2              if(temp <= 20)
+ 232   2              {
+ 233   3                  dac = 51;
+ 234   3                  da_write(51);
+ 235   3              }
+ 236   2              else if(temp <= 40)
+ 237   2              {
+ 238   3                  dac = 7.65 * temp - 102;
+ 239   3                  da_write((unsigned char)dac);
+C51 COMPILER V9.60.0.0   MAIN                                                              03/24/2023 13:15:49 PAGE 5   
+
+ 240   3              }
+ 241   2              else
+ 242   2              {
+ 243   3                  dac = 204;
+ 244   3                  da_write(204);
+ 245   3              }
+ 246   2          }
+ 247   1      }
+ 248          //********************************************************
+ 249          void smg_show(unsigned char wela,unsigned char dula,unsigned char point)//数码管显示
+ 250          {
+ 251   1          P0 = 0xff;
+ 252   1        P2 = P2 & 0x1f | 0xe0;
+ 253   1        P2 &= 0x1f;
+ 254   1      
+ 255   1          P0 = tab2[wela];
+ 256   1        P2 = P2 & 0x1f | 0xc0;
+ 257   1        P2 &= 0x1f;
+ 258   1      
+ 259   1          P0 = tab1[dula];
+ 260   1        if(point) P0 &= 0x7f;
+ 261   1        P2 = P2 & 0x1f | 0xe0;
+ 262   1        P2 &= 0x1f;
+ 263   1      }
+ 264          void led_show(unsigned char addr,unsigned char enable)
+ 265          {
+ 266   1        static unsigned char temp = 0x00;
+ 267   1        static unsigned char temp_old = 0xff;
+ 268   1        if(enable)
+ 269   1          temp |= 0x01 << addr;
+ 270   1        else
+ 271   1          temp &= ~(0x01 << addr);
+ 272   1        if(temp != temp_old)
+ 273   1        {
+ 274   2          P0 = ~temp;
+ 275   2          P2 = P2 & 0x1f | 0x80;
+ 276   2          P2 &= 0x1f;
+ 277   2          temp_old = temp;
+ 278   2        }
+ 279   1      }
+ 280          //********************************************************
+ 281          float onewire_read()//读出温度
+ 282          {
+ 283   1          unsigned char low, high;
+ 284   1          int temp = 0;
+ 285   1          float t = 0;
+ 286   1          init_ds18b20();
+ 287   1          Write_DS18B20(0xcc);
+ 288   1          Write_DS18B20(0x44);
+ 289   1      
+ 290   1          init_ds18b20();
+ 291   1          Write_DS18B20(0xcc);
+ 292   1          Write_DS18B20(0xbe);
+ 293   1      
+ 294   1          low = Read_DS18B20();
+ 295   1          high = Read_DS18B20();
+ 296   1      
+ 297   1          if((high & 0xf8) == 0x00)
+ 298   1          {
+ 299   2              temp |= high;
+ 300   2              t = ((temp << 8) | low) * 0.0625;
+ 301   2          }
+C51 COMPILER V9.60.0.0   MAIN                                                              03/24/2023 13:15:49 PAGE 6   
+
+ 302   1          return t;
+ 303   1      }
+ 304          void Delay750ms()   //@12.000MHz
+ 305          {
+ 306   1        unsigned char i, j, k;
+ 307   1      
+ 308   1        _nop_();
+ 309   1        _nop_();
+ 310   1        i = 35;
+ 311   1        j = 51;
+ 312   1        k = 182;
+ 313   1        do
+ 314   1        {
+ 315   2          do
+ 316   2          {
+ 317   3            while (--k);
+ 318   3          } while (--j);
+ 319   2        } while (--i);
+ 320   1      }
+ 321          //********************************************************
+ 322          void da_write(unsigned char dat)//da输出
+ 323          {
+ 324   1          I2CStart();
+ 325   1          I2CSendByte(0x90);
+ 326   1          I2CWaitAck();
+ 327   1          I2CSendByte(0x43);
+ 328   1          I2CWaitAck();
+ 329   1          I2CSendByte(dat);
+ 330   1          I2CWaitAck();
+ 331   1          I2CStop();
+ 332   1      }
+ 333          //********************************************************
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   1110    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =     65       8
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =      1    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
