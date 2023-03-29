@@ -1,0 +1,45 @@
+C51 COMPILER V9.60.0.0   SMG                                                               03/28/2023 20:59:45 PAGE 1   
+
+
+C51 COMPILER V9.60.0.0, COMPILATION OF MODULE SMG
+OBJECT MODULE PLACED IN .\Objects\smg.obj
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE smg.c OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(.\Listings\smg.l
+                    -st) TABS(2) OBJECT(.\Objects\smg.obj)
+
+line level    source
+
+   1          #include<STC15.H>
+   2          #include<smg.h>
+   3          
+   4          unsigned char tab1[] = {0xc0,0xf9,0xa4,0xb0,0x99,0x92,0x82,0xf8,0x80,0x90,0xff,0x8e,0xc1};
+   5          unsigned char tab2[] = {1,2,4,8,16,32,64,128};
+   6          
+   7          void smg_show(unsigned char addr,unsigned char dat,unsigned char point)
+   8          {
+   9   1          P0 = 0xff;
+  10   1          P2 = P2 & 0x1f | 0xe0;
+  11   1          P2 &= 0x1f;
+  12   1      
+  13   1          P0 = tab2[addr];
+  14   1          P2 = P2 & 0x1f | 0xc0;
+  15   1          P2 &= 0x1f;
+  16   1      
+  17   1          P0 = tab1[dat];
+  18   1          if(point) P0 &= 0x7f; 
+  19   1          P2 = P2 & 0x1f | 0xe0;
+  20   1          P2 &= 0x1f;
+  21   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =     57    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =     21    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
