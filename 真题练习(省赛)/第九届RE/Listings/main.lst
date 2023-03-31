@@ -1,0 +1,287 @@
+C51 COMPILER V9.60.0.0   MAIN                                                              03/31/2023 22:20:59 PAGE 1   
+
+
+C51 COMPILER V9.60.0.0, COMPILATION OF MODULE MAIN
+OBJECT MODULE PLACED IN .\Objects\main.obj
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE main.c OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(.\Listings\main
+                    -.lst) TABS(2) OBJECT(.\Objects\main.obj)
+
+line level    source
+
+   1          #include<STC15.H>
+   2          #include<INTRINS.H>
+   3          
+   4          #include<base.h>
+   5          #include<iic.h>
+   6          
+   7          unsigned char smg_buf[] = {10,10,10,10,10,10,10,10};
+   8          unsigned char point[] = {0,0,0,0,0,0,0,0};
+   9          unsigned char led_buf[] = {0,0,0,0,0,0,0,0};
+  10          unsigned char time_mode[] = {4,4,4,4};
+  11          
+  12          unsigned char key_count = 0;
+  13          unsigned char smg_count = 0;
+  14          unsigned char pos_count = 0;
+  15          
+  16          unsigned char key_val,key_old,key_down,key_up;
+  17          
+  18          unsigned char smg_mode = 0;
+  19          unsigned char led_mode = 0;
+  20          unsigned char led_light_switch = 0;
+  21          
+  22          unsigned int smg_flash = 0;
+  23          unsigned char led_light = 0;
+  24          unsigned char led_pwm = 0;
+  25          unsigned char led_flash = 0;
+  26          bit led_value =0;
+  27          unsigned char da = 0;
+  28          
+  29          unsigned char led_work_mode = 0;
+  30          unsigned char led_work_time = 0;
+  31          unsigned int led_time_count = 0;
+  32          
+  33          void timer0_init();
+  34          void timer0_service();
+  35          void time_mode_init();
+  36          
+  37          void key_proc();
+  38          void smg_proc();
+  39          void led_proc();
+  40          void other_proc();
+  41          
+  42          void main()
+  43          {
+  44   1          init();
+  45   1          timer0_init();
+  46   1          time_mode_init();
+  47   1          while (1)
+  48   1          {
+  49   2              key_proc();
+  50   2              smg_proc();
+  51   2              led_proc();
+  52   2              other_proc();  
+  53   2          }  
+  54   1      }
+C51 COMPILER V9.60.0.0   MAIN                                                              03/31/2023 22:20:59 PAGE 2   
+
+  55          
+  56          void timer0_init()    //1毫秒@12.000MHz
+  57          {
+  58   1        AUXR |= 0x7F;   //定时器时钟1T模式
+  59   1        TMOD &= 0xF0;   //设置定时器模式
+  60   1        TL0 = 0x18;   //设置定时初始值
+  61   1        TH0 = 0xFC;   //设置定时初始值
+  62   1        TF0 = 0;    //清除TF0标志
+  63   1        TR0 = 1;    //定时器0开始计时
+  64   1      
+  65   1          ET0 = 1;
+  66   1          EA = 1;
+  67   1      }
+  68          void time_mode_init()
+  69          {
+  70   1          eeprom_read(time_mode,0,4);
+  71   1      }
+  72          void timer0_service() interrupt 1
+  73          {
+  74   1          if(++key_count == 10) key_count = 0;
+  75   1          if(++smg_count == 500) smg_count = 0;
+  76   1          if(++pos_count == 8) pos_count = 0;
+  77   1          if(++smg_flash == 800) smg_flash = 0;
+  78   1      
+  79   1          if(++led_flash == 24) led_flash = 0;
+  80   1      
+  81   1          if(led_flash <= led_pwm) led_show(pos_count,led_buf[pos_count]);
+  82   1          else led_show(pos_count,0);
+  83   1      
+  84   1      
+  85   1          if(smg_mode == 1)
+  86   1          {
+  87   2              if(smg_flash >= 400)
+  88   2              {   
+  89   3                  smg_show(pos_count,smg_buf[pos_count],point[pos_count]);
+  90   3              }
+  91   2              else if(pos_count < 4)
+  92   2              {
+  93   3                  smg_show(pos_count,10,point[pos_count]);
+  94   3              }
+  95   2              else smg_show(pos_count,smg_buf[pos_count],point[pos_count]);
+  96   2          }
+  97   1          else if(smg_mode == 2)
+  98   1          {
+  99   2              if(smg_flash >= 400)
+ 100   2              {   
+ 101   3                  smg_show(pos_count,smg_buf[pos_count],point[pos_count]);
+ 102   3              }
+ 103   2              else if(pos_count >= 4)
+ 104   2              {
+ 105   3                  smg_show(pos_count,10,point[pos_count]);
+ 106   3              }
+ 107   2              else smg_show(pos_count,smg_buf[pos_count],point[pos_count]);
+ 108   2          }
+ 109   1          else smg_show(pos_count,smg_buf[pos_count],point[pos_count]);
+ 110   1      
+ 111   1          if(led_value)
+ 112   1          {
+ 113   2              led_time_count++;
+ 114   2              if(led_time_count == time_mode[led_work_mode] * 100){led_time_count = 0; led_work_time++;}
+ 115   2          }
+ 116   1      }
+C51 COMPILER V9.60.0.0   MAIN                                                              03/31/2023 22:20:59 PAGE 3   
+
+ 117          void key_proc()
+ 118          {
+ 119   1          if(key_count) return;
+ 120   1          key_count = 1;
+ 121   1      
+ 122   1          key_val = key_read();
+ 123   1          key_down = key_val & (key_val ^ key_old);
+ 124   1          key_up = ~key_val & (key_val ^ key_old);
+ 125   1          key_old = key_val;
+ 126   1      
+ 127   1          if(smg_mode == 0 && key_down == 4) led_light_switch = 1;
+ 128   1        if(smg_mode == 0 && key_up == 4) led_light_switch = 0;
+ 129   1      
+ 130   1          switch(key_up)
+ 131   1          {
+ 132   2          case 4:
+ 133   2              if(smg_mode == 2)
+ 134   2              {
+ 135   3                  if(--time_mode[led_mode] == 3) time_mode[led_mode] = 12;
+ 136   3              }
+ 137   2              if(smg_mode == 1) if(--led_mode == 255) led_mode = 3;
+ 138   2              break;
+ 139   2          case 5:
+ 140   2              if(smg_mode == 2)
+ 141   2              {
+ 142   3                  if(++time_mode[led_mode] == 13) time_mode[led_mode] = 4;
+ 143   3              }
+ 144   2              if(smg_mode == 1) if(++led_mode == 4) led_mode = 0;
+ 145   2              break;
+ 146   2          case 6:
+ 147   2              if(++smg_mode == 3) 
+ 148   2              {   
+ 149   3                  smg_mode = 0;
+ 150   3                  eeprom_write(time_mode,0,4);
+ 151   3              }
+ 152   2              break; 
+ 153   2          case 7:
+ 154   2              led_value = ~led_value;
+ 155   2              break;  
+ 156   2          }
+ 157   1      }
+ 158          void smg_proc()
+ 159          {
+ 160   1          if(smg_count) return;
+ 161   1          smg_count = 1;
+ 162   1      
+ 163   1          if(smg_mode == 0)
+ 164   1          { 
+ 165   2              if(led_light_switch)
+ 166   2              {
+ 167   3                  smg_buf[6] = 11;
+ 168   3                  smg_buf[7] = led_light;
+ 169   3              }
+ 170   2              else
+ 171   2              {
+ 172   3                  unsigned char i;
+ 173   3                  for (i = 0; i < 8; i++)
+ 174   3                  {
+ 175   4                      smg_buf[i] = 10;
+ 176   4                  } 
+ 177   3              }
+ 178   2              
+C51 COMPILER V9.60.0.0   MAIN                                                              03/31/2023 22:20:59 PAGE 4   
+
+ 179   2          }
+ 180   1          else
+ 181   1          {
+ 182   2              smg_buf[0] = 11;
+ 183   2              smg_buf[1] = led_mode + 1;
+ 184   2              smg_buf[2] = 11;
+ 185   2              smg_buf[3] = 10;
+ 186   2              smg_buf[4] = 10;
+ 187   2              if(time_mode[led_mode] / 10 > 0) smg_buf[4] = time_mode[led_mode] / 10;
+ 188   2              else smg_buf[4] = 10;
+ 189   2              smg_buf[5] = time_mode[led_mode] % 10;
+ 190   2              smg_buf[6] = 0;
+ 191   2              smg_buf[7] = 0;
+ 192   2          }
+ 193   1      }
+ 194          void led_proc()
+ 195          {
+ 196   1          if(led_value)
+ 197   1          {
+ 198   2              unsigned char i = 0;
+ 199   2              switch(led_work_mode)
+ 200   2              {
+ 201   3              case 0:          
+ 202   3                  for(i; i < 8; i++)
+ 203   3                  {
+ 204   4                      if(i == led_work_time) led_buf[led_work_time] = 1;
+ 205   4                      else led_buf[i] = 0;
+ 206   4                  }
+ 207   3                  if(led_work_time >= 8) {led_work_mode = 1;led_work_time = 0;}
+ 208   3                  break;
+ 209   3              case 1:
+ 210   3                  for(i = 0 ; i < 8; i++)
+ 211   3                  {
+ 212   4                      if(i == led_work_time) led_buf[7 - i] = 1;
+ 213   4                      else led_buf[7 - i] = 0;
+ 214   4                  }
+ 215   3                  if(led_work_time >= 8) {led_work_mode = 2;led_work_time = 0;}
+ 216   3                  break;
+ 217   3              case 2:
+ 218   3                  for(i = 0 ; i < 4; i++)
+ 219   3                  {
+ 220   4                      if(i == led_work_time) 
+ 221   4                      {
+ 222   5                          led_buf[(7 + i * 9) / 10] = led_buf[(7 + i * 9) % 10] = 1;
+ 223   5                      }
+ 224   4                      else
+ 225   4                      {
+ 226   5                          led_buf[(7 + i * 9) / 10] = led_buf[(7 + i * 9) % 10] = 0;
+ 227   5                      }
+ 228   4                  }
+ 229   3                  if(led_work_time >= 4) {led_work_mode = 3;led_work_time = 0;}
+ 230   3                  break;
+ 231   3              case 3:
+ 232   3                  for(i = 0 ; i < 4; i++)
+ 233   3                  {
+ 234   4                      if(i == led_work_time) 
+ 235   4                      {
+ 236   5                          led_buf[(34 - i * 9) / 10] = led_buf[(34 - i * 9) % 10] = 1;
+ 237   5                      }
+ 238   4                      else
+ 239   4                      {
+ 240   5                          led_buf[(34 - i * 9) / 10] = led_buf[(34 - i * 9) % 10] = 0;
+C51 COMPILER V9.60.0.0   MAIN                                                              03/31/2023 22:20:59 PAGE 5   
+
+ 241   5                      }
+ 242   4                  }
+ 243   3                  if(led_work_time >= 4) {led_work_mode = 0;led_work_time = 0;}
+ 244   3                  break;
+ 245   3              }
+ 246   2          }
+ 247   1      }
+ 248          void other_proc()
+ 249          {
+ 250   1          da = adc_read();
+ 251   1          if(da < 64) {led_pwm = 6;led_light = 1;}
+ 252   1          else if(da < 128) {led_pwm = 12;led_light = 2;}
+ 253   1          else if(da < 192) {led_pwm = 18;led_light = 3;}
+ 254   1          else if(da <= 255){led_pwm = 24;led_light = 4;}
+ 255   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   1181    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =     48       2
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =      1    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

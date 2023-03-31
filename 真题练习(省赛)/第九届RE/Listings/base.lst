@@ -1,0 +1,82 @@
+C51 COMPILER V9.60.0.0   BASE                                                              03/29/2023 21:36:48 PAGE 1   
+
+
+C51 COMPILER V9.60.0.0, COMPILATION OF MODULE BASE
+OBJECT MODULE PLACED IN .\Objects\base.obj
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE base.c OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(.\Listings\base
+                    -.lst) TABS(2) OBJECT(.\Objects\base.obj)
+
+line level    source
+
+   1          #include<STC15.H>
+   2          #include<base.h>
+   3          
+   4          unsigned char tab1[] = {0xc0,0xf9,0xa4,0xb0,0x99,0x92,0x82,0xf8,0x80,0x90,0xff,0xbf};
+   5          unsigned char tab2[] = {1,2,4,8,16,32,64,128};
+   6          
+   7          void init()
+   8          {
+   9   1          P2 = P2 & 0x1f | 0x80;
+  10   1          P0 = 0xff;
+  11   1          P2 &= 0x1f;
+  12   1      
+  13   1          P2 = P2 & 0x1f | 0xa0;
+  14   1          P0 = 0x00;
+  15   1          P2 &= 0x1f;
+  16   1      }
+  17          unsigned char key_read()
+  18          {
+  19   1          unsigned char temp = 0;
+  20   1          if(P33 == 0) temp = 4;
+  21   1          if(P32 == 0) temp = 5;
+  22   1          if(P31 == 0) temp = 6;
+  23   1          if(P30 == 0) temp = 7;
+  24   1          return temp;
+  25   1      }
+  26          void led_show(unsigned pos,flag)
+  27          {
+  28   1          static unsigned char temp = 0x00;
+  29   1          static unsigned char temp_old = 0xff;
+  30   1          if(flag) temp |= 0x01 << pos;
+  31   1          else temp &= ~(0x01 << pos);
+  32   1      
+  33   1          if(temp != temp_old)
+  34   1          {
+  35   2              P0 = ~temp;
+  36   2              P2 = P2 & 0x1f | 0x80;
+  37   2              P2 &= 0x1f;
+  38   2              temp_old = temp;
+  39   2          }
+  40   1      }
+  41          void smg_show(unsigned pos,dat,point)
+  42          {
+  43   1          P0 = 0xff;
+  44   1          P2 = P2 & 0x1f | 0xe0;
+  45   1          P2 &= 0x1f;
+  46   1      
+  47   1          P0 = tab2[pos];
+  48   1          P2 = P2 & 0x1f | 0xc0;
+  49   1          P2 &= 0x1f;
+  50   1      
+  51   1          P0 = tab1[dat];
+  52   1          if(point) P0 &= 0x7f;
+  53   1          P2 = P2 & 0x1f | 0xe0;
+  54   1          P2 &= 0x1f;
+C51 COMPILER V9.60.0.0   BASE                                                              03/29/2023 21:36:48 PAGE 2   
+
+  55   1      
+  56   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    169    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =     22    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
