@@ -1,0 +1,502 @@
+C51 COMPILER V9.60.0.0   MAIN                                                              04/03/2023 14:40:51 PAGE 1   
+
+
+C51 COMPILER V9.60.0.0, COMPILATION OF MODULE MAIN
+OBJECT MODULE PLACED IN .\Objects\main.obj
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE main.c OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(.\Listings\main
+                    -.lst) TABS(2) OBJECT(.\Objects\main.obj)
+
+line level    source
+
+   1          #include<STC15.H>
+   2          #include<INTRINS.H>
+   3          #include<base.h>
+   4          #include<onewire.h>
+   5          #include<ds1302.h>
+   6          
+   7          unsigned char smg_buf[] = {10,10,10,10,10,10,10,10};
+   8          unsigned char point[] = {0,0,0,0,0,0,0,0};
+   9          unsigned char led_buf[] = {0,0,0,0,0,0,0,0};
+  10          unsigned char time[] = {0x23,0x59,0x50};
+  11          unsigned char time_set[] = {0x00,0x00,0x00};
+  12          unsigned char time_clk[] = {0x00,0x00,0x00};
+  13          
+  14          unsigned char key_val,key_up,key_down,key_old;
+  15          unsigned char key_count = 0,smg_count = 0,pos_count = 0;
+  16          
+  17          unsigned int ms1000_count = 0;
+  18          unsigned char ms200_count = 0;
+  19          unsigned char s5_count = 0;
+  20          
+  21          unsigned char smg_mode = 0;
+  22          bit temper_switch = 0;
+  23          unsigned char clk_mode = 0;
+  24          bit clk_flag = 0;
+  25          bit led_flag = 0;
+  26          
+  27          float temper = 0;
+  28          void key_proc();
+  29          void smg_proc();
+  30          void led_proc();
+  31          
+  32          void timer0_init();
+  33          void timer0_service();
+  34          
+  35          void Delay750ms();
+  36          
+  37          void main()
+  38          {
+  39   1          init();
+  40   1          read_temper();
+  41   1          Delay750ms();
+  42   1          set_ds1302(time);
+  43   1          read_ds1302(time_set);
+  44   1          temper = read_temper();
+  45   1          timer0_init();
+  46   1          while(1)
+  47   1          {
+  48   2              key_proc();
+  49   2              smg_proc();
+  50   2              led_proc();
+  51   2          }   
+  52   1      }
+  53          
+  54          void key_proc()
+C51 COMPILER V9.60.0.0   MAIN                                                              04/03/2023 14:40:51 PAGE 2   
+
+  55          {
+  56   1          if(key_count) return;
+  57   1          key_count = 1;
+  58   1      
+  59   1          key_val = key_read();
+  60   1          key_down = key_val & (key_old ^ key_val);
+  61   1          key_up = ~key_val & (key_old ^ key_val);
+  62   1          key_old = key_val;
+  63   1      
+  64   1          if(smg_mode == 0 && key_down == 4) temper_switch = 1;
+  65   1        if(smg_mode == 0 && key_up == 4) temper_switch = 0;
+  66   1      
+  67   1          switch(key_up)
+  68   1          {
+  69   2              case 4:
+  70   2              if(!led_flag)
+  71   2              {
+  72   3                  if(smg_mode == 1)
+  73   3                  {   
+  74   4                      if(time_set[0] == 0) {time_set[0] = 0x23;return;}
+  75   4                      --time_set[0];
+  76   4                      if(((time_set[0] % 16) == 0x0f) && ((time_set[0] / 16) >= 0)) 
+  77   4                      {
+  78   5                          time_set[0] = time_set[0] & 0xf0 | 0x09;
+  79   5                      }
+  80   4                      
+  81   4                  }
+  82   3                  if(smg_mode == 2)
+  83   3                  {   
+  84   4                      if(time_set[1] == 0) {time_set[1] = 0x59;return;}
+  85   4                      --time_set[1];
+  86   4                      if(((time_set[1] % 16) == 0x0f) && ((time_set[1] / 16) >= 0)) 
+  87   4                      {
+  88   5                          time_set[1] = time_set[1] & 0xf0 | 0x09;
+  89   5                      }
+  90   4                      
+  91   4                  }
+  92   3                  if(smg_mode == 3)
+  93   3                  {   
+  94   4                      if(time_set[2] == 0) {time_set[2] = 0x59;return;}
+  95   4                      --time_set[2];
+  96   4                      if(((time_set[2] % 16) == 0x0f) && ((time_set[2] / 16) >= 0)) 
+  97   4                      {
+  98   5                          time_set[2] = time_set[2] & 0xf0 | 0x09;
+  99   5                      }
+ 100   4                      
+ 101   4                  }
+ 102   3                  if(clk_mode == 1)
+ 103   3                  {   
+ 104   4                      if(time_clk[0] == 0) {time_clk[0] = 0x23;return;}
+ 105   4                      --time_clk[0];
+ 106   4                      if(((time_clk[0] % 16) == 0x0f) && ((time_clk[0] / 16) >= 0)) 
+ 107   4                      {
+ 108   5                          time_clk[0] = time_clk[0] & 0xf0 | 0x09;
+ 109   5                      }                
+ 110   4                  }
+ 111   3                  if(clk_mode == 2)
+ 112   3                  {   
+ 113   4                      if(time_clk[1] == 0) {time_clk[1] = 0x59;return;}
+ 114   4                      --time_clk[1];
+ 115   4                      if(((time_clk[1] % 16) == 0x0f) && ((time_clk[1] / 16) >= 0)) 
+ 116   4                      {
+C51 COMPILER V9.60.0.0   MAIN                                                              04/03/2023 14:40:51 PAGE 3   
+
+ 117   5                          time_clk[1] = time_clk[1] & 0xf0 | 0x09;
+ 118   5                      }
+ 119   4                      
+ 120   4                  }
+ 121   3                  if(clk_mode == 3)
+ 122   3                  {   
+ 123   4                      if(time_clk[2] == 0) {time_clk[2] = 0x59;return;}
+ 124   4                      --time_clk[2];
+ 125   4                      if(((time_clk[2] % 16) == 0x0f) && ((time_clk[2] / 16) >= 0)) 
+ 126   4                      {
+ 127   5                          time_clk[2] = time_clk[2] & 0xf0 | 0x09;
+ 128   5                      }
+ 129   4                      
+ 130   4                  }
+ 131   3              }
+ 132   2              else led_flag = 0;    
+ 133   2                  break;
+ 134   2              case 5:
+ 135   2              if(!led_flag)
+ 136   2              {
+ 137   3                  if(smg_mode == 1)
+ 138   3                  {
+ 139   4                      time_set[0]++;
+ 140   4                      if(((time_set[0] % 16) > 9) && ((time_set[0] / 16) < 2)) 
+ 141   4                      {
+ 142   5                          time_set[0] &= 0xf0;
+ 143   5                          time_set[0] += 16;
+ 144   5                      }
+ 145   4                      else if(((time_set[0] % 16) > 3) && ((time_set[0] / 16) == 2))
+ 146   4                      {
+ 147   5                          time_set[0] &= 0x00;
+ 148   5                      }
+ 149   4                  }
+ 150   3                  if(smg_mode == 2)
+ 151   3                  {
+ 152   4                      time_set[1]++;
+ 153   4                      if(((time_set[1] % 16) > 9) && ((time_set[1] / 16) < 5)) 
+ 154   4                      {
+ 155   5                          time_set[1] &= 0xf0;
+ 156   5                          time_set[1] += 16;
+ 157   5                      }
+ 158   4                      else if(((time_set[1] % 16) > 9) && ((time_set[1] / 16) == 5))
+ 159   4                      {
+ 160   5                          time_set[1] &= 0x00;
+ 161   5                      }
+ 162   4                  }
+ 163   3                  if(smg_mode == 3)
+ 164   3                  {
+ 165   4                      time_set[2]++;
+ 166   4                      if(((time_set[2] % 16) > 9) && ((time_set[2] / 16) < 5)) 
+ 167   4                      {
+ 168   5                          time_set[2] &= 0xf0;
+ 169   5                          time_set[2] += 16;
+ 170   5                      }
+ 171   4                      else if(((time_set[2] % 16) > 9) && ((time_set[2] / 16) == 5))
+ 172   4                      {
+ 173   5                          time_set[2] &= 0x00;
+ 174   5                      }
+ 175   4                  }
+ 176   3                  if(clk_mode == 1)
+ 177   3                  {
+ 178   4                      time_clk[0]++;
+C51 COMPILER V9.60.0.0   MAIN                                                              04/03/2023 14:40:51 PAGE 4   
+
+ 179   4                      if(((time_clk[0] % 16) > 9) && ((time_clk[0] / 16) < 2)) 
+ 180   4                      {
+ 181   5                          time_clk[0] &= 0xf0;
+ 182   5                          time_clk[0] += 16;
+ 183   5                      }
+ 184   4                      else if(((time_clk[0] % 16) > 3) && ((time_clk[0] / 16) == 2))
+ 185   4                      {
+ 186   5                          time_clk[0] &= 0x00;
+ 187   5                      }
+ 188   4                  }
+ 189   3                  if(clk_mode == 2)
+ 190   3                  {
+ 191   4                      time_clk[1]++;
+ 192   4                      if(((time_clk[1] % 16) > 9) && ((time_clk[1] / 16) < 5)) 
+ 193   4                      {
+ 194   5                          time_clk[1] &= 0xf0;
+ 195   5                          time_clk[1] += 16;
+ 196   5                      }
+ 197   4                      else if(((time_clk[1] % 16) > 9) && ((time_clk[1] / 16) == 5))
+ 198   4                      {
+ 199   5                          time_clk[1] &= 0x00;
+ 200   5                      }
+ 201   4                  }
+ 202   3                  if(clk_mode == 3)
+ 203   3                  {
+ 204   4                      time_clk[2]++;
+ 205   4                      if(((time_clk[2] % 16) > 9) && ((time_clk[2] / 16) < 5)) 
+ 206   4                      {
+ 207   5                          time_clk[2] &= 0xf0;
+ 208   5                          time_clk[2] += 16;
+ 209   5                      }
+ 210   4                      else if(((time_clk[2] % 16) > 9) && ((time_clk[2] / 16) == 5))
+ 211   4                      {
+ 212   5                          time_clk[2] &= 0x00;
+ 213   5                      }
+ 214   4                  }
+ 215   3              }
+ 216   2              else led_flag = 0;   
+ 217   2                  break;
+ 218   2              case 6:
+ 219   2              if(!led_flag)
+ 220   2              {
+ 221   3                  if(smg_mode == 0)
+ 222   3                  {
+ 223   4                      clk_flag = 1;
+ 224   4                      if(++clk_mode == 4)
+ 225   4                      {
+ 226   5                          clk_mode = 0;
+ 227   5                          clk_flag = 0;
+ 228   5                      }
+ 229   4                  }
+ 230   3              }
+ 231   2              else led_flag = 0;  
+ 232   2                  break;
+ 233   2              case 7:
+ 234   2              if(!led_flag)
+ 235   2              {
+ 236   3                  if(++smg_mode == 4)
+ 237   3                  {
+ 238   4                      smg_mode = 0;
+ 239   4                      set_ds1302(time_set);
+ 240   4                      read_ds1302(time);
+C51 COMPILER V9.60.0.0   MAIN                                                              04/03/2023 14:40:51 PAGE 5   
+
+ 241   4                  }
+ 242   3              }
+ 243   2              else led_flag = 0; 
+ 244   2                  break;
+ 245   2          }
+ 246   1      }
+ 247          void smg_proc()
+ 248          {
+ 249   1          if(smg_count) return;
+ 250   1          smg_count = 1;
+ 251   1      
+ 252   1          read_ds1302(time);
+ 253   1          if(!clk_flag)
+ 254   1          {
+ 255   2          switch(smg_mode)
+ 256   2          {
+ 257   3              case 0:
+ 258   3              if(temper_switch)
+ 259   3              {
+ 260   4                  temper = read_temper();
+ 261   4                  smg_buf[0] = smg_buf[1] = smg_buf[2] = smg_buf[3] = smg_buf[4] = 10;
+ 262   4                  if(temper / 10) smg_buf[5] = (unsigned char)temper / 10;
+ 263   4                  else smg_buf[5] = 10;
+ 264   4                  smg_buf[6] = (unsigned char)temper % 10;
+ 265   4                  smg_buf[7] = 12;
+ 266   4              }
+ 267   3              else
+ 268   3              {
+ 269   4                  smg_buf[0] = time[0] / 16;
+ 270   4                  smg_buf[1] = time[0] % 16;
+ 271   4                  smg_buf[2] = 11;
+ 272   4                  smg_buf[3] = time[1] / 16;
+ 273   4                  smg_buf[4] = time[1] % 16;
+ 274   4                  smg_buf[5] = 11;
+ 275   4                  smg_buf[6] = time[2] / 16;
+ 276   4                  smg_buf[7] = time[2] % 16;
+ 277   4      
+ 278   4                  read_ds1302(time_set);
+ 279   4              }
+ 280   3              break;
+ 281   3          case 1:
+ 282   3              if(ms1000_count < 500)
+ 283   3              {
+ 284   4                  smg_buf[0] = time_set[0] / 16;
+ 285   4                  smg_buf[1] = time_set[0] % 16; 
+ 286   4      
+ 287   4                  smg_buf[3] = time_set[1] / 16;
+ 288   4                  smg_buf[4] = time_set[1] % 16;
+ 289   4                  
+ 290   4                  smg_buf[6] = time_set[2] / 16;
+ 291   4                  smg_buf[7] = time_set[2] % 16;
+ 292   4              }
+ 293   3              else
+ 294   3              {
+ 295   4                  smg_buf[0] = 10;
+ 296   4                  smg_buf[1] = 10; 
+ 297   4              }
+ 298   3              break;
+ 299   3          case 2:
+ 300   3              if(ms1000_count < 500)
+ 301   3              {
+ 302   4                  smg_buf[0] = time_set[0] / 16;
+C51 COMPILER V9.60.0.0   MAIN                                                              04/03/2023 14:40:51 PAGE 6   
+
+ 303   4                  smg_buf[1] = time_set[0] % 16; 
+ 304   4                  
+ 305   4                  smg_buf[3] = time_set[1] / 16;
+ 306   4                  smg_buf[4] = time_set[1] % 16;
+ 307   4                  
+ 308   4                  smg_buf[6] = time_set[2] / 16;
+ 309   4                  smg_buf[7] = time_set[2] % 16;
+ 310   4              }
+ 311   3              else
+ 312   3              {
+ 313   4                  smg_buf[3] = 10;
+ 314   4                  smg_buf[4] = 10; 
+ 315   4              }
+ 316   3              break;
+ 317   3          case 3:
+ 318   3              if(ms1000_count < 500)
+ 319   3              {
+ 320   4                  smg_buf[0] = time_set[0] / 16;
+ 321   4                  smg_buf[1] = time_set[0] % 16; 
+ 322   4                  
+ 323   4                  smg_buf[3] = time_set[1] / 16;
+ 324   4                  smg_buf[4] = time_set[1] % 16;
+ 325   4                  
+ 326   4                  smg_buf[6] = time_set[2] / 16;
+ 327   4                  smg_buf[7] = time_set[2] % 16;
+ 328   4              }
+ 329   3              else
+ 330   3              {
+ 331   4                  smg_buf[6] = 10;
+ 332   4                  smg_buf[7] = 10; 
+ 333   4              }
+ 334   3              break;
+ 335   3          }
+ 336   2          }
+ 337   1          else
+ 338   1          {
+ 339   2          switch(clk_mode) 
+ 340   2             {
+ 341   3              case 1:
+ 342   3                  if(ms1000_count < 500)
+ 343   3              {
+ 344   4                  smg_buf[0] = time_clk[0] / 16;
+ 345   4                  smg_buf[1] = time_clk[0] % 16; 
+ 346   4      
+ 347   4                  smg_buf[3] = time_clk[1] / 16;
+ 348   4                  smg_buf[4] = time_clk[1] % 16;
+ 349   4                  
+ 350   4                  smg_buf[6] = time_clk[2] / 16;
+ 351   4                  smg_buf[7] = time_clk[2] % 16;
+ 352   4              }
+ 353   3              else
+ 354   3              {
+ 355   4                  smg_buf[0] = 10;
+ 356   4                  smg_buf[1] = 10; 
+ 357   4              }
+ 358   3              break;
+ 359   3              case 2:
+ 360   3                  if(ms1000_count < 500)
+ 361   3              {
+ 362   4                  smg_buf[0] = time_clk[0] / 16;
+ 363   4                  smg_buf[1] = time_clk[0] % 16; 
+ 364   4      
+C51 COMPILER V9.60.0.0   MAIN                                                              04/03/2023 14:40:51 PAGE 7   
+
+ 365   4                  smg_buf[3] = time_clk[1] / 16;
+ 366   4                  smg_buf[4] = time_clk[1] % 16;
+ 367   4                  
+ 368   4                  smg_buf[6] = time_clk[2] / 16;
+ 369   4                  smg_buf[7] = time_clk[2] % 16;
+ 370   4              }
+ 371   3              else
+ 372   3              {
+ 373   4                  smg_buf[3] = 10;
+ 374   4                  smg_buf[4] = 10; 
+ 375   4              }
+ 376   3              break;
+ 377   3              case 3:
+ 378   3              if(ms1000_count < 500)
+ 379   3              {
+ 380   4                  smg_buf[0] = time_clk[0] / 16;
+ 381   4                  smg_buf[1] = time_clk[0] % 16; 
+ 382   4      
+ 383   4                  smg_buf[3] = time_clk[1] / 16;
+ 384   4                  smg_buf[4] = time_clk[1] % 16;
+ 385   4                  
+ 386   4                  smg_buf[6] = time_clk[2] / 16;
+ 387   4                  smg_buf[7] = time_clk[2] % 16;
+ 388   4              }
+ 389   3              else
+ 390   3              {
+ 391   4                  smg_buf[6] = 10;
+ 392   4                  smg_buf[7] = 10; 
+ 393   4              }
+ 394   3              break;
+ 395   3             }
+ 396   2          }
+ 397   1      }
+ 398          void led_proc()
+ 399          {
+ 400   1          if((time_clk[0] == time[0]) && (time_clk[1] == time[1]) && (time_clk[2] == time[2])) led_flag = 1;
+ 401   1      
+ 402   1          if((led_flag == 1) && (s5_count < 5))
+ 403   1          {
+ 404   2              if(ms200_count < 100) led_buf[0] = 1;
+ 405   2              else led_buf[0] = 0;
+ 406   2          }
+ 407   1          else
+ 408   1          {
+ 409   2              s5_count = 0;
+ 410   2              led_buf[0] = 0;
+ 411   2          }
+ 412   1      }
+ 413          void timer0_init()
+ 414          {
+ 415   1          AUXR &= 0x7F;   //定时器时钟12T模式
+ 416   1        TMOD &= 0xF0;   //设置定时器模式
+ 417   1        TL0 = 0x18;   //设置定时初始值
+ 418   1        TH0 = 0xFC;   //设置定时初始值
+ 419   1        TF0 = 0;    //清除TF0标志
+ 420   1        TR0 = 1;    //定时器0开始计时
+ 421   1      
+ 422   1          ET0 = 1;
+ 423   1          EA = 1;
+ 424   1      }
+ 425          void timer0_service() interrupt 1
+ 426          {
+C51 COMPILER V9.60.0.0   MAIN                                                              04/03/2023 14:40:51 PAGE 8   
+
+ 427   1          if(++key_count == 10) key_count = 0;
+ 428   1          if(++smg_count == 500) smg_count = 0;
+ 429   1          if(++pos_count == 8) pos_count = 0;
+ 430   1          if(led_flag)
+ 431   1          {
+ 432   2              if(++ms200_count == 200) ms200_count = 0;
+ 433   2          }
+ 434   1          else ms200_count = 0;
+ 435   1          if(++ms1000_count == 1000)
+ 436   1          {
+ 437   2              ms1000_count = 0; 
+ 438   2              if(led_flag) s5_count++;
+ 439   2              if(s5_count == 5)
+ 440   2              {
+ 441   3                  s5_count = 0;
+ 442   3                  led_flag = 0;
+ 443   3              }
+ 444   2          }
+ 445   1          led_show(pos_count,led_buf[pos_count]);
+ 446   1          smg_show(pos_count,smg_buf[pos_count],point[pos_count]);
+ 447   1      }
+ 448          void Delay750ms()   //@12.000MHz
+ 449          {
+ 450   1        unsigned char i, j, k;
+ 451   1      
+ 452   1        _nop_();
+ 453   1        _nop_();
+ 454   1        i = 35;
+ 455   1        j = 51;
+ 456   1        k = 182;
+ 457   1        do
+ 458   1        {
+ 459   2          do
+ 460   2          {
+ 461   3            while (--k);
+ 462   3          } while (--j);
+ 463   2        } while (--i);
+ 464   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   1626    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =     50    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =      3    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
