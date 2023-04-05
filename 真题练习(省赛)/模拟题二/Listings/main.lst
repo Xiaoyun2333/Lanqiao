@@ -1,0 +1,223 @@
+C51 COMPILER V9.60.0.0   MAIN                                                              04/05/2023 11:27:08 PAGE 1   
+
+
+C51 COMPILER V9.60.0.0, COMPILATION OF MODULE MAIN
+OBJECT MODULE PLACED IN .\Objects\main.obj
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE main.c OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(.\Listings\main
+                    -.lst) TABS(2) OBJECT(.\Objects\main.obj)
+
+line level    source
+
+   1          #include<STC15.H>
+   2          #include<INTRINS.H>
+   3          #include<iic.h>
+   4          #include<onewire.h>
+   5          #include<base.h>
+   6          #include<STDIO.H>
+   7          
+   8          unsigned char smg_buf[] = {10,10,10,10,10,10,10,10};
+   9          unsigned char point[] = {0,0,0,0,0,0,0,0};
+  10          unsigned char led_buf[] = {0,0,0,0,0,0,0,0};
+  11          unsigned char uart_recv;
+  12          unsigned char uart_index;
+  13          unsigned char uart_send[20];
+  14          
+  15          unsigned char key_val,key_old,key_up,key_down;
+  16          
+  17          unsigned char key_count = 0;
+  18          unsigned char smg_count = 0;
+  19          unsigned char uart_count = 0;
+  20          unsigned char pos_count = 0;
+  21          
+  22          unsigned char ms200_count = 0;
+  23          
+  24          float temper = 0;
+  25          unsigned char adc = 0;
+  26          
+  27          unsigned char smg_mode = 0;
+  28          bit lock_flag = 0;
+  29          
+  30          void timer0_init();
+  31          void timer0_service();
+  32          
+  33          void uart_service();
+  34          
+  35          void key_prco();
+  36          void smg_proc();
+  37          void led_proc();
+  38          void uart_proc();
+  39          void other_proc();
+  40          
+  41          void main()
+  42          {
+  43   1          init();
+  44   1          read_temper();
+  45   1          Delay750ms();
+  46   1          uart_init();
+  47   1          timer0_init();
+  48   1          while (1)
+  49   1          {
+  50   2              key_prco();
+  51   2              smg_proc();
+  52   2              led_proc();
+  53   2              uart_proc();
+  54   2              other_proc();
+C51 COMPILER V9.60.0.0   MAIN                                                              04/05/2023 11:27:08 PAGE 2   
+
+  55   2          }
+  56   1      }
+  57          void timer0_init()
+  58          {
+  59   1          AUXR |= 0x80;   //定时器时钟1T模式
+  60   1        TMOD &= 0xF0;   //设置定时器模式
+  61   1        TL0 = 0x20;   //设置定时初始值
+  62   1        TH0 = 0xD1;   //设置定时初始值
+  63   1        TF0 = 0;    //清除TF0标志
+  64   1        TR0 = 1;
+  65   1      
+  66   1          ET0 = 1;
+  67   1          EA = 1;
+  68   1      }
+  69          void timer0_service() interrupt 1
+  70          {
+  71   1          if(++key_count == 10) key_count = 0;
+  72   1          if(++smg_count == 500) smg_count = 0;
+  73   1          if(++uart_count == 200) uart_count = 0;
+  74   1          if(++pos_count == 8) pos_count = 0;
+  75   1          if(lock_flag)
+  76   1          {
+  77   2              if(++ms200_count == 200) ms200_count = 0;
+  78   2          }
+  79   1          else ms200_count = 0;
+  80   1          smg_show(pos_count,smg_buf[pos_count],point[pos_count]);
+  81   1          led_show(pos_count,led_buf[pos_count]);
+  82   1      }
+  83          void uart_service() interrupt 4
+  84          {
+  85   1          if(RI)
+  86   1          {
+  87   2              if(!lock_flag)
+  88   2              {
+  89   3                  uart_recv = SBUF;
+  90   3              }
+  91   2              RI = 0;
+  92   2          }
+  93   1      }
+  94          void key_prco()
+  95          {
+  96   1          if(key_count) return;
+  97   1          key_count = 1;
+  98   1      
+  99   1          key_val = key_read();
+ 100   1          key_down = key_val & (key_val ^ key_old);
+ 101   1          key_up = ~key_val & (key_val ^ key_old);
+ 102   1          key_old = key_val;
+ 103   1      
+ 104   1          switch(key_up)
+ 105   1          {
+ 106   2              case 4:
+ 107   2                  lock_flag = 1;
+ 108   2              break;
+ 109   2              case 5:
+ 110   2                  lock_flag = 0;
+ 111   2              break;
+ 112   2              case 12:
+ 113   2                  if(smg_mode == 0)
+ 114   2                  {
+ 115   3                      sprintf(uart_send,"TEMP:%.1fC\r\n",temper);
+ 116   3                      uart_send_string(uart_send);
+C51 COMPILER V9.60.0.0   MAIN                                                              04/05/2023 11:27:08 PAGE 3   
+
+ 117   3                  }
+ 118   2                  if(smg_mode == 1)
+ 119   2                  {
+ 120   3                      sprintf(uart_send,"Voltage:%.2fV\r\n",adc / 51.0);
+ 121   3                      uart_send_string(uart_send);
+ 122   3                  }
+ 123   2              break;
+ 124   2          }
+ 125   1      }
+ 126          void smg_proc()
+ 127          {
+ 128   1          if(smg_count) return;
+ 129   1          smg_count = 1;
+ 130   1      
+ 131   1          temper = read_temper();
+ 132   1          adc = adc_read();
+ 133   1          switch(smg_mode)
+ 134   1          {
+ 135   2              case 0:
+ 136   2                  smg_buf[0] = 11;
+ 137   2                  smg_buf[1] = 1;
+ 138   2                  smg_buf[5] = temper / 10;
+ 139   2                  point[5] = 0;
+ 140   2                  smg_buf[6] = (unsigned char)temper % 10 ;
+ 141   2                  point[6] = 1;
+ 142   2                  smg_buf[7] = (unsigned int)(temper * 10) % 10;  
+ 143   2              break;
+ 144   2              case 1:
+ 145   2                  smg_buf[0] = 11;
+ 146   2                  smg_buf[1] = 2;
+ 147   2                  smg_buf[5] = adc / 51;
+ 148   2                  point[5] = 1;
+ 149   2                  smg_buf[6] = (unsigned int)(adc * 100 / 51) / 10 % 10;
+ 150   2                  point[6] = 0;
+ 151   2                  smg_buf[7] = (unsigned int)(adc * 100 / 51) % 10 % 10;
+ 152   2              break;
+ 153   2          }
+ 154   1      }
+ 155          void led_proc()
+ 156          {
+ 157   1          if(smg_mode == 0)
+ 158   1          {
+ 159   2              led_buf[0] = 1;
+ 160   2              led_buf[1] = 0;
+ 161   2          }
+ 162   1          else
+ 163   1          {
+ 164   2              led_buf[0] = 0;
+ 165   2              led_buf[1] = 1;
+ 166   2          }
+ 167   1      
+ 168   1          if(ms200_count < 100) led_buf[2] = 0;
+ 169   1          else led_buf[2] = 1;
+ 170   1      }
+ 171          void uart_proc()
+ 172          {
+ 173   1          if(uart_count) return;
+ 174   1          uart_count = 1;
+ 175   1          
+ 176   1          switch(uart_recv)
+ 177   1          {
+ 178   2              case 'A':
+C51 COMPILER V9.60.0.0   MAIN                                                              04/05/2023 11:27:08 PAGE 4   
+
+ 179   2                  smg_mode = 0;
+ 180   2              break;
+ 181   2              case 'B':
+ 182   2                  smg_mode = 1;
+ 183   2              break;
+ 184   2          }
+ 185   1      
+ 186   1      }
+ 187          void other_proc()
+ 188          {
+ 189   1          if(temper >= 28.0) relay(1);
+ 190   1          else relay(0);
+ 191   1          if((adc / 51.0) > 3.6) beep(1);
+ 192   1          else beep(0);
+ 193   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    698    ----
+   CONSTANT SIZE    =     29    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =     61    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =      1    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

@@ -1,0 +1,173 @@
+C51 COMPILER V9.60.0.0   BASE                                                              04/05/2023 11:33:04 PAGE 1   
+
+
+C51 COMPILER V9.60.0.0, COMPILATION OF MODULE BASE
+OBJECT MODULE PLACED IN .\Objects\base.obj
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE base.c OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(.\Listings\base
+                    -.lst) TABS(2) OBJECT(.\Objects\base.obj)
+
+line level    source
+
+   1          #include<base.h>
+   2          #include<STC15.H>
+   3          #include<INTRINS.H>
+   4          
+   5          unsigned char tab[] = {0xc0,0xf9,0xa4,0xb0,0x99,0x92,0x82,0xf8,0x80,0x90,0xff,0xc1};
+   6          unsigned char tab2[] = {0x01,0x02,0x04,0x08,0x10,0x20,0x40,0x80};
+   7          
+   8          void init()
+   9          {
+  10   1          P2 = P2 & 0x1f | 0x80;
+  11   1          P0 = 0xff;
+  12   1          P2 &= 0x1f;
+  13   1      
+  14   1          P2 = P2 & 0x1f | 0xa0;
+  15   1          P0 = 0x00;
+  16   1          P2 &= 0x1f;
+  17   1      }
+  18          unsigned char key_read()
+  19          {
+  20   1          unsigned char temp = 0;
+  21   1          AUXR &= 0xef;
+  22   1          P44 = 0;P42 = 1;P35 = 1;P34 = 1;
+  23   1        if(P33 == 0) temp = 4;
+  24   1        if(P32 == 0) temp = 5;
+  25   1        if(P31 == 0) temp = 6;
+  26   1        if(P30 == 0) temp = 7;
+  27   1      
+  28   1        P44 = 1;P42 = 0;P35 = 1;P34 = 1;
+  29   1        if(P33 == 0) temp = 8;
+  30   1        if(P32 == 0) temp = 9;
+  31   1        if(P31 == 0) temp = 10;
+  32   1        if(P30 == 0) temp = 11;
+  33   1        
+  34   1        P44 = 1;P42 = 1;P35 = 0;P34 = 1;
+  35   1        if(P33 == 0) temp = 12;
+  36   1        if(P32 == 0) temp = 13;
+  37   1        if(P31 == 0) temp = 14;
+  38   1        if(P30 == 0) temp = 15;
+  39   1        
+  40   1        P44 = 1;P42 = 1;P35 = 1;P34 = 0;
+  41   1        if(P33 == 0) temp = 16;
+  42   1        if(P32 == 0) temp = 17;
+  43   1        if(P31 == 0) temp = 18;
+  44   1        if(P30 == 0) temp = 19;
+  45   1        
+  46   1        P3 = 0xff;
+  47   1          AUXR |= 0x10; 
+  48   1          return temp;
+  49   1      }
+  50          void smg_show(unsigned char pos,dat,point)
+  51          {
+  52   1          P2 = P2 & 0x1f | 0xe0;
+  53   1          P0 = 0xff;
+  54   1          P2 &= 0x1f;
+C51 COMPILER V9.60.0.0   BASE                                                              04/05/2023 11:33:04 PAGE 2   
+
+  55   1      
+  56   1          P2 = P2 & 0x1f | 0xc0;
+  57   1          P0 = tab2[pos];
+  58   1          P2 &= 0x1f;
+  59   1      
+  60   1          P2 = P2 & 0x1f | 0xe0;
+  61   1          P0 = tab[dat];
+  62   1          if(point) P0 &= 0x7f;
+  63   1          P2 &= 0x1f;
+  64   1      }
+  65          void led_show(unsigned char pos,flag)
+  66          {
+  67   1          static unsigned char temp = 0x00;
+  68   1          static unsigned char temp_old = 0xff;
+  69   1          if(flag) temp |= 0x01 << pos;
+  70   1          else temp &= ~(0x01 << pos); 
+  71   1          if(temp != temp_old)
+  72   1          {
+  73   2              P0 = ~temp;
+  74   2              P2 = P2 & 0x1f | 0x80;
+  75   2          P2 &= 0x1f;
+  76   2          temp_old = temp; 
+  77   2          }
+  78   1      }
+  79          unsigned char temp_1 = 0x00;
+  80          unsigned char temp_1_old = 0xff;
+  81          void relay(unsigned char flag)
+  82          {
+  83   1          if(flag) temp_1 |= 0x10;
+  84   1          else temp_1 &= ~0x10;
+  85   1          if(temp_1 != temp_1_old)
+  86   1        {
+  87   2          P0 = temp_1;
+  88   2          P2 = P2 & 0x1f | 0xa0;
+  89   2          P2 &= 0x1f;
+  90   2          temp_1_old = temp_1;
+  91   2        }
+  92   1      }
+  93          void beep(unsigned char flag)
+  94          {
+  95   1          
+  96   1          if(flag) temp_1 |= 0x40;
+  97   1          else temp_1 &= ~0x40;
+  98   1          if(temp_1 != temp_1_old)
+  99   1        {
+ 100   2          P0 = temp_1;
+ 101   2          P2 = P2 & 0x1f | 0xa0;
+ 102   2          P2 &= 0x1f;
+ 103   2          temp_1_old = temp_1;
+ 104   2        }
+ 105   1      }
+ 106          void uart_init()
+ 107          {
+ 108   1          SCON = 0x50;    //8位数据,可变波特率
+ 109   1        AUXR |= 0x01;   //串口1选择定时器2为波特率发生器
+ 110   1        AUXR |= 0x04;   //定时器时钟1T模式
+ 111   1        T2L = 0xC7;   //设置定时初始值
+ 112   1        T2H = 0xFE;   //设置定时初始值
+ 113   1        AUXR |= 0x10;   //定时器2开始计时
+ 114   1      
+ 115   1          ES = 1;
+ 116   1          EA = 1;
+C51 COMPILER V9.60.0.0   BASE                                                              04/05/2023 11:33:04 PAGE 3   
+
+ 117   1      }
+ 118          void uart_send_byte(unsigned char dat)
+ 119          {
+ 120   1          SBUF = dat;
+ 121   1          while(TI == 0);
+ 122   1          TI = 0;
+ 123   1      }
+ 124          void uart_send_string(unsigned char *dat)
+ 125          {
+ 126   1          while(*dat != '\0')
+ 127   1              uart_send_byte(*dat++);   
+ 128   1      }
+ 129          void Delay750ms()   //@11.0592MHz
+ 130          {
+ 131   1        unsigned char i, j, k;
+ 132   1      
+ 133   1        _nop_();
+ 134   1        _nop_();
+ 135   1        i = 32;
+ 136   1        j = 133;
+ 137   1        k = 87;
+ 138   1        do
+ 139   1        {
+ 140   2          do
+ 141   2          {
+ 142   3            while (--k);
+ 143   3          } while (--j);
+ 144   2        } while (--i);
+ 145   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    423    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =     24       3
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
