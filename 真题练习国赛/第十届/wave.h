@@ -1,0 +1,1 @@
+unsigned char wave_read();

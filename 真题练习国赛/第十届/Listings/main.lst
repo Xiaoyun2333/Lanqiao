@@ -1,0 +1,380 @@
+C51 COMPILER V9.60.0.0   MAIN                                                              04/07/2023 10:13:23 PAGE 1   
+
+
+C51 COMPILER V9.60.0.0, COMPILATION OF MODULE MAIN
+OBJECT MODULE PLACED IN .\Objects\main.obj
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE main.c OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(.\Listings\main
+                    -.lst) TABS(2) OBJECT(.\Objects\main.obj)
+
+line level    source
+
+   1          #include<STC15.H>
+   2          #include<INTRINS.H>
+   3          #include<base.h>
+   4          #include<onewire.h>
+   5          #include<wave.h>
+   6          #include<iic.h>
+   7          #include<STDIO.H>
+   8          
+   9          idata unsigned char smg_buf[] = {10,10,10,10,10,10,10,10};
+  10          idata unsigned char point[] = {0,0,0,0,0,0,0,0};
+  11          idata unsigned char led_buf[] = {0,0,0,0,0,0,0,0};
+  12          unsigned char uart_recv[10];
+  13          unsigned char uart_index;
+  14          unsigned char uart_send[10];
+  15          
+  16          unsigned char key_val,key_up,key_down,key_old,key_val_real;
+  17          unsigned int ms1_count = 0;
+  18          bit key_12 = 0;
+  19          bit key_12_old = 0;
+  20          bit key_13 = 0;
+  21          
+  22          unsigned char key_count = 0;
+  23          unsigned char smg_count = 0;
+  24          unsigned char uart_count = 0;
+  25          unsigned char pos_count = 0;
+  26          
+  27          bit show_set_flag = 0;
+  28          
+  29          unsigned char show_mode = 0;
+  30          unsigned char set_mode = 0;//各种模式参数
+  31          
+  32          unsigned char temper_set = 30;
+  33          unsigned char distance_set = 35;
+  34          unsigned char temper_set_old = 30;
+  35          unsigned char distance_set_old = 35;
+  36          unsigned char set_count_buf[] = {0xff,0xfe}; 
+  37          unsigned int set_count = 0x00;
+  38          float temper = 0;
+  39          unsigned char distance = 0;
+  40          
+  41          
+  42          void key_proc();
+  43          void smg_proc();
+  44          void led_proc();
+  45          void uart_proc();
+  46          void other_proc();
+  47          
+  48          void timer0_init();
+  49          void timer0_service();
+  50          
+  51          void uart_service();
+  52          //---------------------------------------------------------
+  53          void main()
+  54          {
+C51 COMPILER V9.60.0.0   MAIN                                                              04/07/2023 10:13:23 PAGE 2   
+
+  55   1          init();
+  56   1          temper_read();
+  57   1          eeprom_read(0x00,set_count_buf,2);
+  58   1          set_count = (set_count_buf[0] << 8) | set_count_buf[1];
+  59   1          Delay750ms();
+  60   1          temper = temper_read();
+  61   1          uart_init();
+  62   1          timer0_init();
+  63   1          while(1)
+  64   1          {
+  65   2              key_proc();
+  66   2              smg_proc();
+  67   2              led_proc();
+  68   2              uart_proc();
+  69   2              other_proc();
+  70   2          }
+  71   1      }
+  72          //---------------------------------------------------------
+  73          void key_proc()
+  74          {   
+  75   1          static unsigned int key_up_time = 0;
+  76   1          static unsigned int key_down_time = 0;
+  77   1          if(key_count) return;
+  78   1          key_count = 1;
+  79   1      
+  80   1          key_val = key_read();
+  81   1          if(!key_val) key_val_real = 0;
+  82   1          key_down = key_val & (key_val ^ key_old);
+  83   1          key_up = ~key_val & (key_val ^ key_old);
+  84   1          key_old = key_val;
+  85   1      
+  86   1          
+  87   1      
+  88   1          if(key_down) key_down_time = ms1_count;
+  89   1          if(key_up) 
+  90   1          {
+  91   2              key_up_time = ms1_count;
+  92   2              switch(key_up)
+  93   2              {
+  94   3                  case 13: key_val_real = 13; break;
+  95   3                  case 12: key_val_real = 12; break;
+  96   3                  case 17: key_val_real = 17; break;
+  97   3                  case 16: key_val_real = 16; break;
+  98   3              }
+  99   2              if(key_up_time - key_down_time > 1000)
+ 100   2              {
+ 101   3                 key_val_real += 16;
+ 102   3              }
+ 103   2          }
+ 104   1          switch(key_val_real)
+ 105   1          {
+ 106   2              case 13:
+ 107   2                  show_set_flag = ~show_set_flag;
+ 108   2                  if(show_set_flag) set_mode = 0;
+ 109   2                  else 
+ 110   2                  {
+ 111   3                      show_mode = 0;
+ 112   3                      if((temper_set_old != temper_set) || (distance_set != distance_set_old))
+ 113   3                      {
+ 114   4                          set_count++;
+ 115   4                          set_count_buf[0] = (unsigned char)(set_count >> 8);   
+ 116   4                          set_count_buf[1] = (unsigned char)(set_count &= 0x00ff);                 
+C51 COMPILER V9.60.0.0   MAIN                                                              04/07/2023 10:13:23 PAGE 3   
+
+ 117   4                          eeprom_write(0x00,set_count_buf,2);
+ 118   4                          set_count = (set_count_buf[0] << 8) | set_count_buf[1];
+ 119   4                          distance_set_old = distance_set;
+ 120   4                          temper_set_old = temper_set;
+ 121   4                      }
+ 122   3                  }
+ 123   2              break;
+ 124   2              case 12:
+ 125   2                  if(!show_set_flag)
+ 126   2                  {
+ 127   3                      if(++show_mode == 3) show_mode = 0;
+ 128   3                  }
+ 129   2                  else
+ 130   2                  {
+ 131   3                      if(++set_mode == 2) set_mode = 0;
+ 132   3                  }
+ 133   2              break;
+ 134   2              case 16:
+ 135   2                  if(show_set_flag)
+ 136   2                  {
+ 137   3                      if(set_mode == 0)
+ 138   3                      {
+ 139   4                          if(temper_set <= 1) temper_set = 0;
+ 140   4                          else temper_set -= 2;
+ 141   4                      }
+ 142   3                      if(set_mode == 1)
+ 143   3                      {
+ 144   4                          if(distance_set <= 5) distance_set = 0;
+ 145   4                          else distance_set -= 5;
+ 146   4                      }
+ 147   3                  }
+ 148   2              break;
+ 149   2              case 17:
+ 150   2                  if(show_set_flag)
+ 151   2                  {
+ 152   3                      if(set_mode == 0)
+ 153   3                      {
+ 154   4                          if((temper_set >= 97) && (temper_set <= 101)) temper_set = 99;
+ 155   4                          else temper_set += 2;
+ 156   4                      }
+ 157   3                      if(set_mode == 1)
+ 158   3                      {
+ 159   4                          if((distance_set >= 94) && (distance_set <= 104)) distance_set = 99;
+ 160   4                          else distance_set += 5;
+ 161   4                      }
+ 162   3                  }
+ 163   2              break;
+ 164   2              case 29:
+ 165   2                  key_13 = ~key_13;
+ 166   2              break;
+ 167   2              case 28:
+ 168   2                  key_12 = ~key_12;
+ 169   2              break;
+ 170   2          }
+ 171   1      }
+ 172          void smg_proc()
+ 173          {
+ 174   1          if(smg_count) return;
+ 175   1          smg_count = 1;
+ 176   1      
+ 177   1          temper = temper_read();
+ 178   1          distance = wave_read();
+C51 COMPILER V9.60.0.0   MAIN                                                              04/07/2023 10:13:23 PAGE 4   
+
+ 179   1          if(distance >= 99) distance = 99;
+ 180   1      
+ 181   1          if(!show_set_flag)
+ 182   1          {
+ 183   2              switch(show_mode)
+ 184   2              {
+ 185   3                  case 0:
+ 186   3                      smg_buf[0] = 11;
+ 187   3                      smg_buf[3] = 10;
+ 188   3                      smg_buf[4] = temper / 10;
+ 189   3                      smg_buf[5] = (unsigned char)temper % 10;
+ 190   3                      smg_buf[6] = (unsigned int)(temper * 10) % 10;
+ 191   3                      smg_buf[7] = (unsigned int)(temper * 100) % 10;
+ 192   3                      point[5] = 1;
+ 193   3                  break;
+ 194   3                  case 1:
+ 195   3                      smg_buf[0] = 12;
+ 196   3                      smg_buf[4] = 10;
+ 197   3                      smg_buf[5] = 10;
+ 198   3                      if((distance / 100) == 0) smg_buf[5] = 10;
+ 199   3                      else smg_buf[5] = distance / 100;
+ 200   3                      if((distance / 10 % 10) == 0)
+ 201   3                      {
+ 202   4                          if((distance / 100) == 0) smg_buf[6] = 10;
+ 203   4                          else smg_buf[6] = 0;
+ 204   4                      }
+ 205   3                      else smg_buf[6] = distance / 10 % 10;
+ 206   3                      smg_buf[7] = distance % 10;
+ 207   3                      point[5] = 0;
+ 208   3                  break;
+ 209   3                  case 2:
+ 210   3                      smg_buf[0] = 13;
+ 211   3                      if(set_count / 10000 == 0) smg_buf[3] = 10;
+ 212   3                      else smg_buf[3] = set_count / 10000;
+ 213   3                      if(set_count / 1000 % 10 == 0)
+ 214   3                      {
+ 215   4                          if(set_count / 10000 == 0) smg_buf[4] = 10;
+ 216   4                          else smg_buf[4] = 0;
+ 217   4                      }
+ 218   3                      else smg_buf[4] = set_count / 1000 % 10;
+ 219   3                      if(set_count / 100 % 10 == 0)
+ 220   3                      {
+ 221   4                          if(set_count / 1000 == 0) smg_buf[5] = 10;
+ 222   4                          else smg_buf[5] = 0;
+ 223   4                      }
+ 224   3                      else smg_buf[5] = set_count / 100 % 10;
+ 225   3                      if(set_count / 10 % 10 == 0)
+ 226   3                      {
+ 227   4                          if(set_count / 100 == 0) smg_buf[6] = 10;
+ 228   4                          else smg_buf[6] = 0;
+ 229   4                      }
+ 230   3                      else smg_buf[6] = set_count / 10 % 10;
+ 231   3                      if(set_count % 10 == 0) smg_buf[7] = 0;
+ 232   3                      else smg_buf[7] = set_count % 10;
+ 233   3                  break;
+ 234   3              }
+ 235   2          }
+ 236   1          else
+ 237   1          {
+ 238   2              switch(set_mode)
+ 239   2              {
+ 240   3                  case 0:
+C51 COMPILER V9.60.0.0   MAIN                                                              04/07/2023 10:13:23 PAGE 5   
+
+ 241   3                      smg_buf[0] = 14;
+ 242   3                      smg_buf[3] = 1;
+ 243   3                      smg_buf[4] = 10;
+ 244   3                      smg_buf[5] = 10;
+ 245   3                      smg_buf[6] = temper_set / 10;
+ 246   3                      smg_buf[7] = temper_set % 10;
+ 247   3                      point[5] = 0;
+ 248   3                  break;
+ 249   3                  case 1:
+ 250   3                      smg_buf[0] = 14;
+ 251   3                      smg_buf[3] = 2;
+ 252   3                      smg_buf[4] = 10;
+ 253   3                      smg_buf[5] = 10;
+ 254   3                      smg_buf[6] = distance_set / 10;
+ 255   3                      smg_buf[7] = distance_set % 10;
+ 256   3                  break;
+ 257   3              }
+ 258   2          }
+ 259   1      }
+ 260          void led_proc()
+ 261          {
+ 262   1          if(temper > temper_set) led_buf[0] = 1;
+ 263   1          else led_buf[0] = 0;
+ 264   1          if(distance < distance_set) led_buf[1] = 1;
+ 265   1          else led_buf[1] = 0;
+ 266   1          if(key_13) led_buf[2] = 1;
+ 267   1          else led_buf[2] = 0;
+ 268   1      }
+ 269          void uart_proc()
+ 270          {
+ 271   1          if(uart_count) return;
+ 272   1          uart_count = 1;
+ 273   1          if(uart_index)
+ 274   1          {
+ 275   2              if((uart_recv[0] == 'S')&&(uart_recv[1] == 'T')&&(uart_recv[2] == '\r')&&(uart_recv[3] == '\n')&&(
+             -uart_index == 4))
+ 276   2              {
+ 277   3                  sprintf(uart_send,"$%d,%.2f\r\n",(unsigned int)distance,temper);
+ 278   3                  uart_send_string(uart_send);
+ 279   3              }
+ 280   2              else if((uart_recv[0] == 'P')&&(uart_recv[1] == 'A')&&(uart_recv[2] == 'R')&&(uart_recv[3] == 'A')
+             -&&(uart_recv[4] == '\r')&&(uart_recv[5] == '\n')&&(uart_index == 6))
+ 281   2              {
+ 282   3                  sprintf(uart_send,"#%d,%d\r\n",(unsigned int)distance_set,(unsigned int)temper_set);
+ 283   3                  uart_send_string(uart_send);
+ 284   3              }
+ 285   2              else
+ 286   2              {
+ 287   3                  sprintf(uart_send,"ERROR\r\n");
+ 288   3                  uart_send_string(uart_send);
+ 289   3              }
+ 290   2              uart_index = 0;
+ 291   2          }
+ 292   1          
+ 293   1         
+ 294   1      }
+ 295          void other_proc()
+ 296          {
+ 297   1          if(!key_13) dac_write(21);
+ 298   1          else
+ 299   1          {
+ 300   2              if(distance <= distance_set) dac_write(103);
+C51 COMPILER V9.60.0.0   MAIN                                                              04/07/2023 10:13:23 PAGE 6   
+
+ 301   2              else dac_write(205);
+ 302   2          }
+ 303   1          if(key_12 != key_12_old)
+ 304   1          {
+ 305   2              set_count_buf[0] = 0;
+ 306   2              set_count_buf[1] = 0;
+ 307   2              eeprom_write(0x00,set_count_buf,2);
+ 308   2              set_count = (set_count_buf[0] << 8) | set_count_buf[1];
+ 309   2          }
+ 310   1      }
+ 311          
+ 312          void timer0_init()
+ 313          {
+ 314   1          AUXR |= 0x80;   //定时器时钟1T模式
+ 315   1        TMOD &= 0xF0;   //设置定时器模式
+ 316   1        TL0 = 0x20;   //设置定时初始值
+ 317   1        TH0 = 0xD1;   //设置定时初始值
+ 318   1        TF0 = 0;    //清除TF0标志
+ 319   1        TR0 = 1;    //定时器0开始计时
+ 320   1      
+ 321   1          ET0 = 1;
+ 322   1          EA = 1;
+ 323   1      }
+ 324          void timer0_service() interrupt 1
+ 325          {
+ 326   1          if(++key_count == 10) key_count = 0;
+ 327   1          if(++smg_count == 200) smg_count = 0;
+ 328   1          if(++uart_count == 200) uart_count = 0;
+ 329   1          if(++pos_count == 8) pos_count = 0;
+ 330   1      
+ 331   1          smg_show(pos_count,smg_buf[pos_count],point[pos_count]);
+ 332   1          led_show(pos_count,led_buf[pos_count]);
+ 333   1      
+ 334   1          ms1_count++; 
+ 335   1      }
+ 336          void uart_service() interrupt 4
+ 337          {
+ 338   1          if((RI == 1) && (uart_index < 20))
+ 339   1          {
+ 340   2              uart_recv[uart_index] = SBUF;
+ 341   2              uart_index++;
+ 342   2              RI = 0;
+ 343   2          }
+ 344   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   1536    ----
+   CONSTANT SIZE    =     28    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =     51    ----
+   IDATA SIZE       =     24    ----
+   BIT SIZE         =      4    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
