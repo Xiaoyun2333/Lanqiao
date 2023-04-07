@@ -1,0 +1,182 @@
+C51 COMPILER V9.60.0.0   BASE                                                              04/07/2023 19:43:12 PAGE 1   
+
+
+C51 COMPILER V9.60.0.0, COMPILATION OF MODULE BASE
+OBJECT MODULE PLACED IN .\Objects\base.obj
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE base.c OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(.\Listings\base
+                    -.lst) TABS(2) OBJECT(.\Objects\base.obj)
+
+line level    source
+
+   1          #include<STC15.H>
+   2          #include<INTRINS.H>
+   3          #include<base.h>
+   4          
+   5          sbit Tx = P1^0;
+   6          sbit Rx = P1^1;
+   7          
+   8          code unsigned char tab[] = {0xc0,0xf9,0xa4,0xb0,0x99,0x92,0x82,0xf8,0x80,0x90,0xff};
+   9          static unsigned char temp1 = 0x00;
+  10          static unsigned char temp1_old = 0xff;
+  11          
+  12          void init()
+  13          {
+  14   1          P2 = P2 & 0x1f | 0x80;
+  15   1          P0 = 0xff;
+  16   1          P2 &= 0x1f;
+  17   1      
+  18   1          P2 = P2 & 0x1f | 0xa0;
+  19   1          P0 = 0x00;
+  20   1          P2 &= 0x1f;
+  21   1      }
+  22          void led_show(unsigned char pos,flag)
+  23          {
+  24   1          static unsigned char temp = 0x00;
+  25   1          static unsigned char temp_old = 0xff;
+  26   1          if(flag) temp |= 0x01 << pos;
+  27   1          else temp &= ~(0x01 << pos);
+  28   1          if(temp != temp_old)
+  29   1          {
+  30   2              P0 = ~temp;
+  31   2              P2 = P2 & 0x1f | 0x80;
+  32   2              P2 &= 0x1f;
+  33   2              temp = temp_old;
+  34   2          }
+  35   1      }
+  36          void relay(unsigned char flag)
+  37          {
+  38   1          if(flag) temp1 |= 0x10;
+  39   1          else temp1 &= ~0x10;
+  40   1          if(temp1 != temp1_old)
+  41   1          {
+  42   2              P0 = temp1;
+  43   2              P2 = P2 & 0x1f | 0xa0;
+  44   2              P2 &= 0x1f;
+  45   2              temp1 = temp1_old;
+  46   2          }
+  47   1      }
+  48          void beep(unsigned char flag)
+  49          {
+  50   1          if(flag) temp1 |= 0x40;
+  51   1          else temp1 &= ~0x40;
+  52   1          if(temp1 != temp1_old)
+  53   1          {
+  54   2              P0 = temp1;
+C51 COMPILER V9.60.0.0   BASE                                                              04/07/2023 19:43:12 PAGE 2   
+
+  55   2              P2 = P2 & 0x1f | 0xa0;
+  56   2              P2 &= 0x1f;
+  57   2              temp1 = temp1_old;
+  58   2          }
+  59   1      }
+  60          unsigned char key_read()
+  61          {
+  62   1          unsigned char temp = 0;
+  63   1          AUXR &= 0xfe;
+  64   1          if(P33 == 0) temp = 4;
+  65   1          if(P32 == 0) temp = 5;
+  66   1          if(P31 == 0) temp = 6;
+  67   1          if(P30 == 0) temp = 7;
+  68   1          AUXR |= 0x10;
+  69   1          return temp;
+  70   1      }
+  71          // unsigned char key_read()
+  72          // {
+  73          //     unsigned char temp = 0;
+  74          //     AUXR &= 0xfe;
+  75          //     P44 = 0;P42 = 1;P35 = 1;P34 = 1;
+  76          //     if(P33 == 0) temp = 4;
+  77          //     if(P32 == 0) temp = 5;
+  78          //     if(P31 == 0) temp = 6;
+  79          //     if(P30 == 0) temp = 7;
+  80          //     P44 = 1;P42 = 0;P35 = 1;P34 = 1;
+  81          //     if(P33 == 0) temp = 8;
+  82          //     if(P32 == 0) temp = 9;
+  83          //     if(P31 == 0) temp = 10;
+  84          //     if(P30 == 0) temp = 11;
+  85          //     P44 = 1;P42 = 1;P35 = 0;P34 = 1;
+  86          //     if(P33 == 0) temp = 12;
+  87          //     if(P32 == 0) temp = 13;
+  88          //     if(P31 == 0) temp = 14;
+  89          //     if(P30 == 0) temp = 15;
+  90          //     P44 = 1;P42 = 1;P35 = 1;P34 = 0;
+  91          //     if(P33 == 0) temp = 16;
+  92          //     if(P32 == 0) temp = 17;
+  93          //     if(P31 == 0) temp = 18;
+  94          //     if(P30 == 0) temp = 19;
+  95          //     AUXR |= 0x10;
+  96          //     return temp;
+  97          // }
+  98          void smg_show(unsigned pos,dat,flag)
+  99          {
+ 100   1          P2 = P2 & 0x1f | 0xe0;
+ 101   1          P0 = 0xff;
+ 102   1          P2 &= 0x1f;
+ 103   1      
+ 104   1          P2 = P2 & 0x1f | 0xa0;
+ 105   1          P0 = 0x01 << pos;
+ 106   1          P2 &= 0x1f;
+ 107   1      
+ 108   1          P2 = P2 & 0x1f | 0xe0;
+ 109   1          P0 = tab[dat];
+ 110   1          P2 &= 0x1f;
+ 111   1      }
+ 112          void Delay12us()    //@12.000MHz
+ 113          {
+ 114   1        unsigned char i;
+ 115   1      
+ 116   1        _nop_();
+C51 COMPILER V9.60.0.0   BASE                                                              04/07/2023 19:43:12 PAGE 3   
+
+ 117   1        _nop_();
+ 118   1        i = 33;
+ 119   1        while (--i);
+ 120   1      }
+ 121          void wave_init()
+ 122          {
+ 123   1          unsigned char i;
+ 124   1          for(i = 0;i < 8;i++)
+ 125   1          {
+ 126   2              Tx = 1;
+ 127   2              Delay12us();
+ 128   2              Tx = 0;
+ 129   2              Delay12us();
+ 130   2          }
+ 131   1      }
+ 132          unsigned char wave_read()
+ 133          {
+ 134   1          unsigned int time = 0;
+ 135   1          CMOD &= 0x00;
+ 136   1          CH = CL = 0;
+ 137   1          CF = 0;
+ 138   1          CR = 0;
+ 139   1          wave_init();
+ 140   1          CR = 1;
+ 141   1          while(Rx && !CF);
+ 142   1          CR = 0;
+ 143   1          if(CF == 0)
+ 144   1          {
+ 145   2              time = CH << 8 | CL;
+ 146   2              Rx = 1;
+ 147   2              return time * 0.017;
+ 148   2          }
+ 149   1          else 
+ 150   1          {
+ 151   2              CF = 0;
+ 152   2              return 255;
+ 153   2          }
+ 154   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    352    ----
+   CONSTANT SIZE    =     11    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =      4       2
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
