@@ -1,9 +1,0 @@
-".\Objects\STARTUP.obj",
-".\Objects\14346695.obj",
-".\Objects\iic.obj",
-".\Objects\base.obj",
-".\Objects\uart.obj",
-".\Objects\onewire.obj",
-".\Objects\ds1302.obj" 
-TO ".\Objects\14346695" 
-PRINT(".\Listings\14346695.m51") RAMSIZE(256) 
