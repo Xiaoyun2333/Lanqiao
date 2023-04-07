@@ -1,0 +1,210 @@
+C51 COMPILER V9.60.0.0   BASE                                                              04/07/2023 21:33:23 PAGE 1   
+
+
+C51 COMPILER V9.60.0.0, COMPILATION OF MODULE BASE
+OBJECT MODULE PLACED IN .\Objects\Base.obj
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE Base.c OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(.\Listings\Base
+                    -.lst) TABS(2) OBJECT(.\Objects\Base.obj)
+
+line level    source
+
+   1          #include "stc15f2k60s2.h"
+   2          #include "Base.h"
+   3          #include "intrins.h"
+   4          
+   5          code unsigned char Seg_Table[] = {0xc0,0xf9,0xa4,0xb0,0x99,0x92,0x82,0xf8,0x80,0x90,0xff,0xc1};
+   6          static unsigned char temp1 = 0x00;
+   7          static unsigned char temp1_old = 0xff;
+   8          sbit Tx = P1^0;
+   9          sbit Rx = P1^1;
+  10          
+  11          //键值读取
+  12          //unsigned char Key_Read()
+  13          //{
+  14          //  unsigned char temp = 0x00;
+  15          //  if(P33 == 0)temp = 4;
+  16          //  if(P32 == 0)temp = 5;
+  17          //  if(P31 == 0)temp = 6;
+  18          //  if(P30 == 0)temp = 7;
+  19          //  return temp;
+  20          //}
+  21          //数码管按位显示
+  22          void Smg_Bit(unsigned char pos,dat,dot)
+  23          {
+  24   1        P0 = 0xff;
+  25   1        P2 = P2 & 0x1f | 0xe0;
+  26   1        P2 &= 0x1f;
+  27   1        
+  28   1        P0 = 0x01 << pos;
+  29   1        P2 = P2 & 0x1f | 0xc0;
+  30   1        P2 &= 0x1f;
+  31   1        
+  32   1        P0 = Seg_Table[dat];
+  33   1        if(dot)P0 &= 0x7f;
+  34   1        P2 = P2 & 0x1f | 0xe0;
+  35   1        P2 &= 0x1f;
+  36   1      }
+  37          //led按位显示
+  38          void Led_Bit(unsigned char pos,flag)
+  39          {
+  40   1        static unsigned char temp = 0x00;
+  41   1        static unsigned char temp_old = 0xff;
+  42   1        
+  43   1        if(flag)temp |= 0x01 << pos;
+  44   1        else temp &= ~(0x01 << pos);
+  45   1        if(temp != temp_old)
+  46   1        {
+  47   2          P0 = ~temp;
+  48   2          P2 = P2 & 0x1f | 0x80;
+  49   2          P2 &= 0x1f;
+  50   2          temp_old = temp;
+  51   2        }
+  52   1      }
+  53          //继电器
+  54          void Relay(unsigned char flag)
+C51 COMPILER V9.60.0.0   BASE                                                              04/07/2023 21:33:23 PAGE 2   
+
+  55          {
+  56   1        if(flag)temp1 |= 0x10;
+  57   1        else temp1 &= ~(0x10);
+  58   1        if(temp1 != temp1_old)
+  59   1        {
+  60   2          P0 = temp1;
+  61   2          P2 = P2 & 0x1f | 0xa0;
+  62   2          P2 &= 0x1f;
+  63   2          temp1_old = temp1;
+  64   2        }
+  65   1      }
+  66          //蜂鸣器
+  67          void Beep(unsigned char flag)
+  68          {
+  69   1        if(flag)temp1 |= 0x40;
+  70   1        else temp1 &= ~(0x40);
+  71   1        if(temp1 != temp1_old)
+  72   1        {
+  73   2          P0 = temp1;
+  74   2          P2 = P2 & 0x1f | 0xa0;
+  75   2          P2 &= 0x1f;
+  76   2          temp1_old = temp1;
+  77   2        }
+  78   1      }
+  79          //超声波生成40khz延时
+  80          void Delay12us()    //@12.000MHz
+  81          {
+  82   1        unsigned char i;
+  83   1      
+  84   1        _nop_();
+  85   1        _nop_();
+  86   1        i = 33;
+  87   1        while (--i);
+  88   1      }
+  89          //生成8个信号
+  90          void Wave_Init()
+  91          {
+  92   1        unsigned char i;
+  93   1        for(i = 0;i < 8;i++)
+  94   1        {
+  95   2          Tx = 1;
+  96   2          Delay12us();
+  97   2          Tx = 0;
+  98   2          Delay12us();
+  99   2        }
+ 100   1      }
+ 101          //超声波读取距离（PCA实现）
+ 102          unsigned char Dis_Read()
+ 103          {
+ 104   1        unsigned int time = 0;
+ 105   1        CMOD &= 0x00;
+ 106   1        CH = CL = 0;
+ 107   1        CF = 0;
+ 108   1        CR = 0;
+ 109   1        Wave_Init();
+ 110   1        CR = 1;
+ 111   1        while(Rx == 1&&CF == 0);
+ 112   1        CR = 0;
+ 113   1        if(CF == 0)
+ 114   1        {
+ 115   2          time = CH << 8 | CL;
+ 116   2          Rx = 1;
+C51 COMPILER V9.60.0.0   BASE                                                              04/07/2023 21:33:23 PAGE 3   
+
+ 117   2          return time * 0.017;
+ 118   2        }
+ 119   1        else
+ 120   1        {
+ 121   2          CF = 0;
+ 122   2          return 255;
+ 123   2        }
+ 124   1      }
+ 125          
+ 126          //用定时器实现超声波
+ 127          //unsigned char Dis_Read()
+ 128          //{
+ 129          //  unsigned int time = 0;
+ 130          //  AUXR &= 0xBF;     //定时器时钟12T模式
+ 131          //  TMOD &= 0x0F;     //设置定时器模式
+ 132          //  TL1 = TH1 = 0x00;       
+ 133          //  TF1 = 0;      
+ 134          //  TR1 = 0;
+ 135          //  
+ 136          //  Wave_Init();
+ 137          //  TR1 = 1;
+ 138          //  while(Rx == 1&&TF1 == 0);
+ 139          //  TR1 = 0;
+ 140          //  if(TF1 == 0)
+ 141          //  {
+ 142          //    time = TH1 << 8 | TL1;
+ 143          //    Rx = 1;
+ 144          //    return time * 0.017;
+ 145          //  }
+ 146          //  else 
+ 147          //  {
+ 148          //    TF1 = 0;
+ 149          //    return 255;
+ 150          //  }
+ 151          //}
+ 152          //矩阵键盘读取键值
+ 153          unsigned char Key_Read()
+ 154          {
+ 155   1        unsigned char temp = 0x00;
+ 156   1        AUXR &= 0xef;
+ 157   1        P44 = 0,P42 = 1,P35 = 1,P34 = 1;
+ 158   1        if(P33 == 0)temp = 4;
+ 159   1        if(P32 == 0)temp = 5;
+ 160   1        if(P31 == 0)temp = 6;
+ 161   1        if(P30 == 0)temp = 7;
+ 162   1        P44 = 1,P42 = 0,P35 = 1,P34 = 1;
+ 163   1        if(P33 == 0)temp = 8;
+ 164   1        if(P32 == 0)temp = 9;
+ 165   1        if(P31 == 0)temp = 10;
+ 166   1        if(P30 == 0)temp = 11;
+ 167   1        P44 = 1,P42 = 1,P35 = 0,P34 = 1;
+ 168   1        if(P33 == 0)temp = 12;
+ 169   1        if(P32 == 0)temp = 13;
+ 170   1        if(P31 == 0)temp = 14;
+ 171   1        if(P30 == 0)temp = 15;
+ 172   1      //  P44 = 1,P42 = 1,P35 = 1,P34 = 0;
+ 173   1      //  if(P33 == 0)temp = 16;
+ 174   1      //  if(P32 == 0)temp = 17;
+ 175   1      //  if(P31 == 0)temp = 18;
+ 176   1      //  if(P30 == 0)temp = 19;
+ 177   1        P33 = 0xff;
+ 178   1        AUXR |= 0x10;
+C51 COMPILER V9.60.0.0   BASE                                                              04/07/2023 21:33:23 PAGE 4   
+
+ 179   1        return temp;
+ 180   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    392    ----
+   CONSTANT SIZE    =     12    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =      4    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

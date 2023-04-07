@@ -1,0 +1,225 @@
+C51 COMPILER V9.60.0.0   14313064                                                          04/07/2023 21:39:11 PAGE 1   
+
+
+C51 COMPILER V9.60.0.0, COMPILATION OF MODULE 14313064
+OBJECT MODULE PLACED IN .\Objects\14313064.obj
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE 14313064.c OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(.\Listings\
+                    -14313064.lst) TABS(2) OBJECT(.\Objects\14313064.obj)
+
+line level    source
+
+   1          #include "stc15f2k60s2.h"
+   2          #include "intrins.h"
+   3          #include "Base.h"
+   4          #include "ds1302.h"
+   5          #include "iic.h"
+   6          #include "Uart.h"
+   7          #include "onewire.h"
+   8          #include "stdio.h"
+   9          //固定模板变量
+  10          unsigned char Key_old,Key_value,Key_down,Key_up;  //按键相关变量
+  11          unsigned char Key_slow,Smg_slow,Uart_slow;    //减速变量
+  12          unsigned char Smg_buffer[] = {10,10,10,10,10,10,10,10}; //数码管缓存
+  13          unsigned char Led_buffer[] = {0,0,0,0,0,0,0,0};   //LED缓存
+  14          unsigned char Smg_dot[] = {0,0,0,0,0,0,0,0};    //数码管小数点
+  15          unsigned char Smg_pos = 0;    //数码管位置变量
+  16          unsigned char Uart_send[15];    //串口发送数据数组
+  17          idata unsigned char Uart_rec[15];   //串口接收数据存放数组
+  18          idata unsigned char Uart_index;     //串口指针变量
+  19          //自定义变量
+  20          idata float temper = 0;
+  21          idata unsigned char vol = 0;
+  22          idata unsigned char light = 0;
+  23          idata unsigned char distance = 0;
+  24          idata unsigned char time_set[3] = {23,59,50};
+  25          idata unsigned char time[3] = {0,0,0};
+  26          unsigned char count;
+  27          unsigned char mode = 0;
+  28          unsigned int freq = 0;
+  29          unsigned int t_1000ms = 0;
+  30          
+  31          /*键盘处理函数*/
+  32          void Key_Proc()
+  33          {
+  34   1        if(Key_slow)return;
+  35   1        Key_slow = 1;
+  36   1        
+  37   1        Key_value = Key_Read();
+  38   1        Key_down = Key_value & (Key_value ^ Key_old);
+  39   1        Key_up = ~Key_value & (Key_value ^ Key_old);
+  40   1        Key_old = Key_value;
+  41   1      
+  42   1        switch(Key_up)
+  43   1        {
+  44   2          case 4:
+  45   2            count++;
+  46   2          break;
+  47   2        }
+  48   1      
+  49   1      
+  50   1      }
+  51          /*信息处理函数*/
+  52          void Smg_Proc()
+  53          {
+  54   1        if(Smg_slow)return;
+C51 COMPILER V9.60.0.0   14313064                                                          04/07/2023 21:39:11 PAGE 2   
+
+  55   1        Smg_slow = 1;
+  56   1        distance = Dis_Read();
+  57   1        temper = Read_temper();
+  58   1        vol = AD_Read(0x01);
+  59   1        light = AD_Read(0x03);
+  60   1        DA_Write(vol);
+  61   1        Read_Ds1302(time);
+  62   1        EEPROM_Write(&count,0,1);
+  63   1        Smg_buffer[0] = count / 100;
+  64   1        Smg_buffer[1] = count / 10 % 10;
+  65   1        Smg_buffer[2] = count % 10; 
+  66   1        
+  67   1      }
+  68          /*其他处理函数*/
+  69          void Other_Proc()
+  70          {
+  71   1      
+  72   1      
+  73   1      }
+  74          /*串口处理函数*/
+  75          void Uart_Proc()
+  76          {
+  77   1        if(Uart_slow)return;
+  78   1        Uart_slow = 1;
+  79   1        if(Uart_index)
+  80   1        {
+  81   2        
+  82   2        
+  83   2          Uart_index = 0;
+  84   2        }
+  85   1      
+  86   1      
+  87   1      }
+  88          /*串口中断函数*/
+  89          void Uart_Service()interrupt 4
+  90          {
+  91   1        if(RI == 1)
+  92   1        {
+  93   2          Uart_rec[Uart_index] = SBUF;
+  94   2          Uart_index++;
+  95   2          RI = 0;
+  96   2        }
+  97   1      }
+  98          /*定时器0初始化*/
+  99          void Timer0Init(void)   //设置定时器0计数模式,不需要打开中断
+ 100          {
+ 101   1        AUXR |= 0x80;     //定时器时钟1T模式
+ 102   1        TMOD &= 0xF0;     //设置定时器模式
+ 103   1        TMOD |= 0x05;
+ 104   1        TL0 = 0x00;       //设置定时初始值
+ 105   1        TH0 = 0x00;       //设置定时初始值
+ 106   1        TF0 = 0;        //清除TF0标志
+ 107   1        TR0 = 1;        //定时器0开始计时
+ 108   1      
+ 109   1      }
+ 110          /*定时器1初始化函数*/
+ 111          void Timer1Init(void)   //1毫秒@12.000MHz
+ 112          {
+ 113   1        AUXR |= 0x40;     //定时器时钟1T模式
+ 114   1        TMOD &= 0x0F;     //设置定时器模式
+ 115   1        TL1 = 0x20;       //设置定时初始值
+ 116   1        TH1 = 0xD1;       //设置定时初始值
+C51 COMPILER V9.60.0.0   14313064                                                          04/07/2023 21:39:11 PAGE 3   
+
+ 117   1        TF1 = 0;        //清除TF1标志
+ 118   1        TR1 = 1;        //定时器1开始计时
+ 119   1      
+ 120   1        
+ 121   1        ET1 = 1;
+ 122   1        EA = 1;
+ 123   1      }
+ 124          //定时器1中断服务函数
+ 125          void Timer1Service()interrupt 3
+ 126          {
+ 127   1        if(++Key_slow == 10)Key_slow = 0;
+ 128   1        if(++Smg_slow == 500)Smg_slow = 0;
+ 129   1        if(++Uart_slow == 100)Uart_slow = 0;
+ 130   1        if(++Smg_pos == 8)Smg_pos = 0;
+ 131   1        if(++t_1000ms == 1000)
+ 132   1        {
+ 133   2          TR0 = 0;
+ 134   2          t_1000ms = 0;
+ 135   2          freq = TH0 << 8 | TL0;
+ 136   2          TH0 = TL0 = 0x00;
+ 137   2          TR0 = 1;
+ 138   2        }
+ 139   1        Smg_Bit(Smg_pos,Smg_buffer[Smg_pos],Smg_dot[Smg_pos]);
+ 140   1        Led_Bit(Smg_pos,Led_buffer[Smg_pos]);
+ 141   1      }
+ 142          
+ 143          void Delay750ms()   //@12.000MHz
+ 144          {
+ 145   1        unsigned char i, j, k;
+ 146   1      
+ 147   1        _nop_();
+ 148   1        _nop_();
+ 149   1        i = 35;
+ 150   1        j = 51;
+ 151   1        k = 182;
+ 152   1        do
+ 153   1        {
+ 154   2          do
+ 155   2          {
+ 156   3            while (--k);
+ 157   3          } while (--j);
+ 158   2        } while (--i);
+ 159   1      }
+ 160          void Init_Sys()
+ 161          {
+ 162   1        P0 = 0xff;
+ 163   1        P2 = P2 & 0x1f | 0x80;
+ 164   1        P2 = P2 & 0x1f | 0xe0;
+ 165   1        P2 &= 0x1f;
+ 166   1        
+ 167   1        P0 = 0x00;
+ 168   1        P2 = P2 & 0x1f | 0xa0;
+ 169   1        P2 &= 0x1f;
+ 170   1      
+ 171   1        Timer0Init();
+ 172   1        Timer1Init();
+ 173   1        UartInit();
+ 174   1        
+ 175   1        EEPROM_Read(&count,0,1);
+ 176   1        Read_temper();
+ 177   1        Delay750ms();
+ 178   1        temper = Read_temper();
+C51 COMPILER V9.60.0.0   14313064                                                          04/07/2023 21:39:11 PAGE 4   
+
+ 179   1        
+ 180   1        Set_Ds1302(time_set);
+ 181   1        vol = AD_Read(0x03);
+ 182   1        DA_Write(vol);
+ 183   1        distance = Dis_Read(); 
+ 184   1      }
+ 185          void main(void)
+ 186          {
+ 187   1        Init_Sys();
+ 188   1        while(1)
+ 189   1        {
+ 190   2          Key_Proc();
+ 191   2          Smg_Proc();
+ 192   2          Other_Proc();
+ 193   2          Uart_Proc();
+ 194   2        }
+ 195   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    541    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =     53    ----
+   IDATA SIZE       =     29    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

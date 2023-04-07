@@ -1,0 +1,8 @@
+".\Objects\14313064.obj",
+".\Objects\Base.obj",
+".\Objects\ds1302.obj",
+".\Objects\iic.obj",
+".\Objects\onewire.obj",
+".\Objects\Uart.obj" 
+TO ".\Objects\14313064" 
+PRINT(".\Listings\14313064.m51") RAMSIZE(256) 
